@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
-import 'dart:convert' show utf8;
+// import 'package:file_picker/file_picker.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+// import 'dart:convert' show utf8;
+
+import 'input_manual_page.dart';
+
+enum MenuOption { uploadExcel, inputManual }
 
 class UpdateData extends StatefulWidget {
   const UpdateData({super.key});
@@ -10,46 +16,67 @@ class UpdateData extends StatefulWidget {
 }
 
 class _UpdateDataState extends State<UpdateData> {
-  final List<Map<String, String>> _dataList = [
-    {'title': 'Data Tingkat Pengangguran Terbuka 2025', 'table_data': 'Kolom1,Kolom2\nNilai1,Nilai2'},
-    {'title': 'Data PDRB per Kapita Kabupaten Madiun', 'table_data': 'Tahun,PDRB\n2023,100jt\n2024,110jt'},
-    {'title': 'Indeks Pembangunan Manusia (IPM) 2025', 'table_data': 'Indikator,Nilai\nAHH,75.2'},
-  ];
+  List<Map<String, String>> _dataList = [];
 
-  void _showFormDialog({Map<String, String>? initialData, int? index}) async {
-    final result = await showDialog<Map<String, String>>(
-      context: context,
-      builder: (context) {
-        return _DataFormDialog(initialData: initialData);
-      },
-    );
-
-    if (result != null) {
-      setState(() {
-        if (index != null) {
-          _dataList[index] = result;
-        } else {
-          _dataList.add(result);
-        }
-      });
-    }
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
   }
 
-  void _deleteItem(int index) {
+  Future<void> _loadData() async {
+    final data = await _fetchData();
+
     setState(() {
-      _dataList.removeAt(index);
+      _dataList = data;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Item data berhasil dihapus')),
+  }
+
+  Future<List<Map<String, String>>> _fetchData() async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('/data-umum/title/list_title/')
+        .get();
+
+    final fetchedMap = [
+      for (var doc in snapshot.docs)
+        {'title': (doc['judul'] as String), 'link': (doc['link'] as String)},
+    ];
+
+    return fetchedMap;
+  }
+
+  void _seeData({required Map<String, String> initialData}) async {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ShowData(initialData: initialData),
+      ),
     );
   }
+
+  // void _showFormDialog({Map<String, String>? initialData, int? index}) async {
+  //   final result = await showDialog<Map<String, String>>(
+  //     context: context,
+  //     builder: (context) {
+  //       return DataFormDialog(initialData: initialData);
+  //     },
+  //   );
+
+  //   if (result != null) {
+  //     setState(() {
+  //       if (index != null) {
+  //         _dataList[index] = result;
+  //       } else {
+  //         _dataList.add(result);
+  //       }
+  //     });
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Update Data Publik'),
-      ),
+      appBar: AppBar(title: const Text('Update Data Publik')),
       body: ListView.builder(
         padding: const EdgeInsets.all(16.0),
         itemCount: _dataList.length,
@@ -63,14 +90,9 @@ class _UpdateDataState extends State<UpdateData> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.edit_outlined, color: Colors.blue),
-                    onPressed: () => _showFormDialog(initialData: data, index: index),
-                    tooltip: 'Edit',
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                    onPressed: () => _deleteItem(index),
-                    tooltip: 'Hapus',
+                    icon: const Icon(Icons.edit, color: Colors.blue),
+                    onPressed: () => _seeData(initialData: data),
+                    tooltip: 'Lihat',
                   ),
                 ],
               ),
@@ -78,132 +100,447 @@ class _UpdateDataState extends State<UpdateData> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showFormDialog(),
-        child: const Icon(Icons.add),
+      floatingActionButton: PopupMenuButton<MenuOption>(
+        // Callback saat salah satu item menu dipilih
+        onSelected: (MenuOption item) {
+          // Logika untuk menangani pilihan
+          switch (item) {
+            case MenuOption.uploadExcel:
+              break;
+            case MenuOption.inputManual:
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => ManualInputPage()),
+              );
+              break;
+          }
+        },
+
+        itemBuilder: (BuildContext context) => <PopupMenuEntry<MenuOption>>[
+          const PopupMenuItem<MenuOption>(
+            value: MenuOption.uploadExcel,
+            child: ListTile(
+              leading: Icon(Icons.file_upload),
+              title: Text('Upload Data Excel'),
+            ),
+          ),
+          const PopupMenuItem<MenuOption>(
+            value: MenuOption.inputManual,
+            child: ListTile(
+              leading: Icon(Icons.edit),
+              title: Text('Input Manual'),
+            ),
+          ),
+        ],
+
+        // Bagian ini membuat PopupMenuButton terlihat seperti FAB
         tooltip: 'Tambah Data Baru',
+        child: Container(
+          width: 56.0,
+          height: 56.0,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Theme.of(context).colorScheme.secondary, // Warna FAB
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 6.0,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.add,
+            color: Colors.white, // Warna ikon
+          ),
+        ),
       ),
     );
   }
 }
 
-class _DataFormDialog extends StatefulWidget {
-  final Map<String, String>? initialData;
-  const _DataFormDialog({this.initialData});
+// class DataFormDialog extends StatefulWidget {
+//   final Map<String, String>? initialData;
+//   const DataFormDialog({this.initialData});
+
+//   @override
+//   State<DataFormDialog> createState() => _DataFormDialogState();
+// }
+
+// class _DataFormDialogState extends State<DataFormDialog> {
+//   final _formKey = GlobalKey<FormState>();
+//   late TextEditingController _titleController;
+
+//   String? _pickedFileName;
+//   String? _pickedFileContent;
+
+//   @override
+//   void initState() {
+//     super.initState();
+//     _titleController = TextEditingController(
+//       text: widget.initialData?['title'] ?? '',
+//     );
+//     if (widget.initialData != null) {
+//       _pickedFileContent = widget.initialData?['table_data'];
+//       _pickedFileName = 'data_lama.csv';
+//     }
+//   }
+
+//   @override
+//   void dispose() {
+//     _titleController.dispose();
+//     super.dispose();
+//   }
+
+//   Future<void> _pickFile() async {
+//     FilePickerResult? result = await FilePicker.platform.pickFiles(
+//       type: FileType.custom,
+//       allowedExtensions: ['csv', 'xlsx', 'xls'],
+//       withData: true,
+//     );
+
+//     if (result != null) {
+//       setState(() {
+//         final file = result.files.first;
+//         _pickedFileName = file.name;
+//         _pickedFileContent = utf8.decode(file.bytes!);
+//       });
+//     }
+//   }
+
+//   void _submit() {
+//     if (_formKey.currentState!.validate()) {
+//       if (_pickedFileContent == null) {
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           const SnackBar(
+//             content: Text('Harap pilih file tabel terlebih dahulu'),
+//           ),
+//         );
+//         return;
+//       }
+//       final result = {
+//         'title': _titleController.text,
+//         'table_data': _pickedFileContent!,
+//       };
+//       Navigator.pop(context, result);
+//     }
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return AlertDialog(
+//       title: Text(
+//         widget.initialData == null ? 'Tambah Data Baru' : 'Edit Data',
+//       ),
+//       content: Form(
+//         key: _formKey,
+//         child: SingleChildScrollView(
+//           child: Column(
+//             mainAxisSize: MainAxisSize.min,
+//             crossAxisAlignment: CrossAxisAlignment.start,
+//             children: [
+//               TextFormField(
+//                 controller: _titleController,
+//                 decoration: const InputDecoration(labelText: 'Judul Data'),
+//                 validator: (v) =>
+//                     v!.isEmpty ? 'Judul tidak boleh kosong' : null,
+//               ),
+//               const SizedBox(height: 24),
+//               const Text(
+//                 'Isi Tabel',
+//                 style: TextStyle(fontWeight: FontWeight.bold),
+//               ),
+//               const SizedBox(height: 8),
+//               Container(
+//                 padding: const EdgeInsets.all(12),
+//                 decoration: BoxDecoration(
+//                   border: Border.all(color: Colors.grey.shade400),
+//                   borderRadius: BorderRadius.circular(8),
+//                 ),
+//                 child: Row(
+//                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//                   children: [
+//                     Expanded(
+//                       child: Text(
+//                         _pickedFileName ?? 'Tidak ada file dipilih',
+//                         overflow: TextOverflow.ellipsis,
+//                       ),
+//                     ),
+//                     OutlinedButton(
+//                       onPressed: _pickFile,
+//                       child: const Text('Pilih File'),
+//                     ),
+//                   ],
+//                 ),
+//               ),
+//             ],
+//           ),
+//         ),
+//       ),
+//       actions: [
+//         TextButton(
+//           onPressed: () => Navigator.pop(context),
+//           child: const Text('Batal'),
+//         ),
+//         ElevatedButton(onPressed: _submit, child: const Text('Simpan')),
+//       ],
+//     );
+//   }
+// }
+
+class ShowData extends StatefulWidget {
+  final Map<String, String> initialData;
+  const ShowData({super.key, required this.initialData});
 
   @override
-  State<_DataFormDialog> createState() => __DataFormDialogState();
+  State<ShowData> createState() => _ShowData();
 }
 
-class __DataFormDialogState extends State<_DataFormDialog> {
-  final _formKey = GlobalKey<FormState>();
-  late TextEditingController _titleController;
-  
-  String? _pickedFileName;
-  String? _pickedFileContent;
+class _ShowData extends State<ShowData> {
+  late final String linkData;
+  late Future<QuerySnapshot> _kontakFuture;
+  List<String> _namaKolom = [];
 
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.initialData?['title'] ?? '');
-    if (widget.initialData != null) {
-      _pickedFileContent = widget.initialData?['table_data'];
-      _pickedFileName = 'data_lama.csv';
-    }
+    linkData = widget.initialData['link']!;
+    _kontakFuture = FirebaseFirestore.instance
+        .collection(linkData)
+        .orderBy('tahun')
+        .get();
   }
 
-  @override
-  void dispose() {
-    _titleController.dispose();
-    super.dispose();
-  }
-  Future<void> _pickFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['csv', 'xlsx', 'xls'],
-      withData: true,
-    );
-
-    if (result != null) {
-      setState(() {
-        final file = result.files.first;
-        _pickedFileName = file.name;
-        _pickedFileContent = utf8.decode(file.bytes!);
-      });
-    }
-  }
-
-  void _submit() {
-    if (_formKey.currentState!.validate()) {
-      if (_pickedFileContent == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Harap pilih file tabel terlebih dahulu')),
+  void _hapusData() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Konfirmasi Hapus'),
+          content: const Text('Apakah Anda yakin ingin menghapus data ini?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Batal'),
+              onPressed: () {
+                Navigator.of(context).pop(); // Tutup dialog
+              },
+            ),
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Hapus'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Data berhasil dihapus')),
+                );
+              },
+            ),
+          ],
         );
-        return;
-      }
-      final result = {
-        'title': _titleController.text,
-        'table_data': _pickedFileContent!,
-      };
-      Navigator.pop(context, result);
-    }
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.initialData == null ? 'Tambah Data Baru' : 'Edit Data'),
-      content: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Judul Data'),
-                validator: (v) => v!.isEmpty ? 'Judul tidak boleh kosong' : null,
-              ),
-              const SizedBox(height: 24),
-              const Text('Isi Tabel', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade400),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _pickedFileName ?? 'Tidak ada file dipilih',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    OutlinedButton(
-                      onPressed: _pickFile,
-                      child: const Text('Pilih File'),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+    return Scaffold(
+      backgroundColor: Colors.grey[200],
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        flexibleSpace: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset('lib/assets/backgroundd.jpg', fit: BoxFit.cover),
+            Container(color: Colors.black.withValues(alpha: 0.3)),
+          ],
+        ),
+        title: const Text(
+          'Tabel Data',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
           ),
         ),
+
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+        ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Batal'),
-        ),
-        ElevatedButton(
-          onPressed: _submit,
-          child: const Text('Simpan'),
-        ),
-      ],
+      body: FutureBuilder<QuerySnapshot>(
+        future: _kontakFuture,
+        builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
+          if (snapshot.hasError) {
+            return const Center(child: Text('Terjadi kesalahan!'));
+          }
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.data!.docs.isEmpty) {
+            return const Center(
+              child: Text('Belum ada data / Atau Kemungkinan ada kesalahan!'),
+            );
+          }
+
+          Map<String, dynamic> dataColumns =
+              snapshot.data!.docs.first.data() as Map<String, dynamic>;
+          _namaKolom = dataColumns.keys.toList();
+
+          List<DataRow> dataRows = snapshot.data!.docs.asMap().entries.map((
+            entry,
+          ) {
+            int index = entry.key;
+            DocumentSnapshot document = entry.value;
+            Map<String, dynamic> data =
+                document.data()! as Map<String, dynamic>;
+            return DataRow(
+              color: WidgetStateProperty.resolveWith<Color?>((states) {
+                if (index.isEven) {
+                  return Colors.grey.withValues(alpha: .1);
+                }
+                return null;
+              }),
+              cells: _namaKolom.map((kolom) {
+                return DataCell(
+                  Center(child: Text((data[kolom] ?? '-').toString())),
+                );
+              }).toList(),
+            );
+          }).toList();
+          return SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 16),
+                  Text(
+                    widget.initialData['title']!,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    // Mencegah konten di dalam Card keluar dari sudut yang melengkung
+                    clipBehavior: Clip.antiAlias,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: DataTable(
+                            // ======== DEKORASI HEADER ========
+                            headingRowColor: WidgetStateProperty.all(
+                              Colors.blue[700],
+                            ), // Warna latar header
+                            headingTextStyle: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white, // Warna teks header
+                              fontSize: 16,
+                            ),
+
+                            // ======== GARIS BATAS & SPASI ========
+                            border: TableBorder.all(
+                              width: 1,
+                              color:
+                                  Colors.grey.shade300, // Warna garis batas sel
+                              borderRadius: BorderRadius.circular(
+                                11,
+                              ), // Sesuaikan dengan radius Card
+                            ),
+                            horizontalMargin:
+                                0, // Hapus margin bawaan di kiri dan kanan
+                            columnSpacing: 16,
+
+                            // ======== KOLOM (HEADER) ========
+                            columns: _namaKolom.map((String columnName) {
+                              return DataColumn(
+                                label: Expanded(
+                                  child: Center(
+                                    child: Text(
+                                      columnName,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+
+                            // ======== BARIS DATA ========
+                            rows: dataRows,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(
+                    height: 24,
+                  ), // Memberi jarak dari tabel ke tombol
+
+                  Row(
+                    children: [
+                      // Tombol Edit Data
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.edit),
+                          label: const Text('Edit'),
+                          onPressed: () {},
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10), // Jarak antar tombol
+                      // Tombol Ganti Data
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.sync_alt),
+                          label: const Text('Ganti Baru'),
+                          onPressed: () {},
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.delete_forever),
+                          label: const Text('Hapus'),
+                          onPressed: _hapusData,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                Colors.red[700], // Warna merah untuk aksi hapus
+                            foregroundColor:
+                                Colors.white, // Warna teks dan ikon
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

@@ -6,6 +6,7 @@ import 'update_homepage.dart';
 import 'update_infografis.dart';
 import 'update_publikasi.dart';
 import 'update_data.dart';
+// import 'excel_to_db.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -25,10 +26,22 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _setupDashboardStream() {
-    final internStream = _firestore.collection('intern-req').where('status', isEqualTo: 'pending').snapshots();
-    final consultStream = _firestore.collection('consult-req').where('status', isEqualTo: 'pending').snapshots();
-    final complainStream = _firestore.collection('complain-req').where('status', isEqualTo: 'pending').snapshots();
-    final dataStream = _firestore.collection('data-req').where('status', isEqualTo: 'pending').snapshots();
+    final internStream = _firestore
+        .collection('intern-req')
+        .where('status', isEqualTo: 'pending')
+        .snapshots();
+    final consultStream = _firestore
+        .collection('consult-req')
+        .where('status', isEqualTo: 'pending')
+        .snapshots();
+    final complainStream = _firestore
+        .collection('complain-req')
+        .where('status', isEqualTo: 'pending')
+        .snapshots();
+    final dataStream = _firestore
+        .collection('data-req')
+        .where('status', isEqualTo: 'pending')
+        .snapshots();
 
     _dashboardStream = CombineLatestStream.combine4(
       internStream,
@@ -53,24 +66,27 @@ class _HomePageState extends State<HomePage> {
             frequencyMap[title] = (frequencyMap[title] ?? 0) + 1;
           }
           if (frequencyMap.isNotEmpty) {
-            var sortedKeys = frequencyMap.keys.toList(growable: false)
-              ..sort((k1, k2) => frequencyMap[k2]!.compareTo(frequencyMap[k1]!));
+            var sortedKeys = frequencyMap.keys.toList(
+              growable: false,
+            )..sort((k1, k2) => frequencyMap[k2]!.compareTo(frequencyMap[k1]!));
             popularService = sortedKeys.first;
           }
         }
-        
-        return {
-          'count': requestCount,
-          'popular': popularService,
-        };
+
+        return {'count': requestCount, 'popular': popularService};
       },
     );
   }
 
   void _showServiceListView() {
-    Navigator.push(context, MaterialPageRoute(builder: (context) {
-      return const LayananPage();
-    }));
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) {
+          return const LayananPage();
+        },
+      ),
+    );
   }
 
   @override
@@ -100,7 +116,7 @@ class _HomePageState extends State<HomePage> {
 
           final int requestCount = snapshot.data?['count'] ?? 0;
           final String mostPopularService = snapshot.data?['popular'] ?? 'N/A';
-          
+
           return DashboardAdmin(
             requestCount: requestCount,
             mostPopularService: mostPopularService,
@@ -112,17 +128,17 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-
 class DashboardAdmin extends StatelessWidget {
   final VoidCallback onLihatDetailPressed;
   final int requestCount;
   final String mostPopularService;
 
-  const DashboardAdmin(
-      {super.key,
-      required this.onLihatDetailPressed,
-      required this.requestCount,
-      required this.mostPopularService});
+  const DashboardAdmin({
+    super.key,
+    required this.onLihatDetailPressed,
+    required this.requestCount,
+    required this.mostPopularService,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -161,7 +177,7 @@ class DashboardAdmin extends StatelessWidget {
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               shadows: [
-                                Shadow(blurRadius: 4.0, color: Colors.black54)
+                                Shadow(blurRadius: 4.0, color: Colors.black54),
                               ],
                             ),
                           ),
@@ -175,7 +191,7 @@ class DashboardAdmin extends StatelessWidget {
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
                           shadows: [
-                            Shadow(blurRadius: 4.0, color: Colors.black54)
+                            Shadow(blurRadius: 4.0, color: Colors.black54),
                           ],
                         ),
                       ),
@@ -186,7 +202,7 @@ class DashboardAdmin extends StatelessWidget {
                           color: Colors.white,
                           fontSize: 14,
                           shadows: [
-                            Shadow(blurRadius: 2.0, color: Colors.black87)
+                            Shadow(blurRadius: 2.0, color: Colors.black87),
                           ],
                         ),
                       ),
@@ -201,8 +217,9 @@ class DashboardAdmin extends StatelessWidget {
             padding: const EdgeInsets.all(16.0),
             decoration: BoxDecoration(
               color: Colors.grey[200],
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(20.0)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20.0),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -231,7 +248,6 @@ class DashboardAdmin extends StatelessWidget {
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: onLihatDetailPressed,
-                  child: const Text('Lihat Semua Layanan'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange,
                     foregroundColor: Colors.white,
@@ -240,23 +256,26 @@ class DashboardAdmin extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     textStyle: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
+                  child: const Text('Lihat Semua Layanan'),
                 ),
                 const SizedBox(height: 20),
-                _MenuButton(
-                  icon: Icons.dashboard_outlined,
-                  label: 'Dashboard Performance',
-                  onTap: () {},
-                ),
+                // _MenuButton(
+                //   icon: Icons.dashboard_outlined,
+                //   label: 'Dashboard Performance',
+                //   onTap: () {},
+                // ),
                 _MenuButton(
                   icon: Icons.update,
                   label: 'Update Data',
                   onTap: () {
                     Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const UpdateData()));
+                      context,
+                      MaterialPageRoute(builder: (context) => UpdateData()),
+                    );
                   },
                 ),
                 _MenuButton(
@@ -264,9 +283,11 @@ class DashboardAdmin extends StatelessWidget {
                   label: 'Update Homepage',
                   onTap: () {
                     Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const UpdateHomepage()));
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const UpdateHomepage(),
+                      ),
+                    );
                   },
                 ),
                 _MenuButton(
@@ -274,9 +295,11 @@ class DashboardAdmin extends StatelessWidget {
                   label: 'Update Infografis',
                   onTap: () {
                     Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const UpdateInfografis()));
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const UpdateInfografis(),
+                      ),
+                    );
                   },
                 ),
                 _MenuButton(
@@ -284,9 +307,11 @@ class DashboardAdmin extends StatelessWidget {
                   label: 'Update Publikasi',
                   onTap: () {
                     Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const UpdatePublikasi()));
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const UpdatePublikasi(),
+                      ),
+                    );
                   },
                 ),
               ],
@@ -322,10 +347,10 @@ class _SmallStatsCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12.0),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: .05),
             blurRadius: 10,
             offset: const Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Row(
@@ -337,20 +362,30 @@ class _SmallStatsCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (count != null)
-                  Text(count.toString(),
-                      style: const TextStyle(
-                          fontSize: 22, fontWeight: FontWeight.bold)),
+                  Text(
+                    count.toString(),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 if (value != null)
-                  Text(value ?? '',
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                Text(label,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  Text(
+                    value ?? '',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
@@ -368,22 +403,28 @@ class _MenuButton extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 12.0),
       shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: Colors.grey[300]!)),
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey[300]!),
+      ),
       elevation: 2,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12.0),
         child: Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
-          child: Row(children: [
-            Icon(icon, color: Colors.black54),
-            const SizedBox(width: 12),
-            Text(label,
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))
-          ]),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+          child: Row(
+            children: [
+              Icon(icon, color: Colors.black54),
+              const SizedBox(width: 12),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

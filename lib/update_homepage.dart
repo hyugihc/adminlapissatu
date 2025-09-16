@@ -97,16 +97,19 @@ class _UpdateHomepageState extends State<UpdateHomepage> {
                   ),
                   subtitle: Text(
                     doc['label'],
-                    style: const TextStyle(
-                      color: Colors.grey, 
-                      fontSize: 14,
-                    ),
+                    style: const TextStyle(color: Colors.grey, fontSize: 14),
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showStatsDialog(existingDoc: doc)),
-                      IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _deleteStat(doc)),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.blue),
+                        onPressed: () => _showStatsDialog(existingDoc: doc),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _deleteStat(doc),
+                      ),
                     ],
                   ),
                 ),
@@ -118,7 +121,6 @@ class _UpdateHomepageState extends State<UpdateHomepage> {
     );
   }
 }
-
 
 class _AddEditStatsDialog extends StatefulWidget {
   final FirebaseFirestore firestore;
@@ -151,32 +153,35 @@ class _AddEditStatsDialogState extends State<_AddEditStatsDialog> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() => _isLoading = true);
 
     try {
       double rawValue = double.parse(_valueController.text);
-      
+
       String formattedValue = '${rawValue.toStringAsFixed(2)}%';
 
-      final data = {
-        'label': _labelController.text,
-        'value': formattedValue,
-      };
+      final data = {'label': _labelController.text, 'value': formattedValue};
 
       if (widget.existingDoc == null) {
         await widget.firestore.collection('home-display').add(data);
       } else {
         await widget.existingDoc!.reference.update(data);
       }
-      
-      Navigator.of(context).pop();
-
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
     } catch (e) {
       print('Gagal menyimpan: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gagal menyimpan data. Pastikan nilai adalah angka yang valid.'))
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Gagal menyimpan data. Pastikan nilai adalah angka yang valid.',
+            ),
+          ),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -185,7 +190,9 @@ class _AddEditStatsDialogState extends State<_AddEditStatsDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.existingDoc == null ? 'Tambah Statistik' : 'Edit Statistik'),
+      title: Text(
+        widget.existingDoc == null ? 'Tambah Statistik' : 'Edit Statistik',
+      ),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -210,7 +217,9 @@ class _AddEditStatsDialogState extends State<_AddEditStatsDialog> {
                   hintText: 'Contoh: 3.28',
                   suffixText: '%',
                 ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Nilai tidak boleh kosong';
@@ -228,7 +237,10 @@ class _AddEditStatsDialogState extends State<_AddEditStatsDialog> {
       actions: _isLoading
           ? [const Center(child: CircularProgressIndicator())]
           : [
-              TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Batal')),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Batal'),
+              ),
               ElevatedButton(onPressed: _submit, child: const Text('Simpan')),
             ],
     );

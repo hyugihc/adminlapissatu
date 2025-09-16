@@ -48,7 +48,9 @@ class _LayananPageState extends State<LayananPage> {
           data['id'] = doc.id;
           if (data['timestamp'] != null && data['timestamp'] is Timestamp) {
             DateTime dt = (data['timestamp'] as Timestamp).toDate();
-            data['formatted_date'] = DateFormat('dd MMM yyyy, HH:mm').format(dt);
+            data['formatted_date'] = DateFormat(
+              'dd MMM yyyy, HH:mm',
+            ).format(dt);
           } else {
             data['formatted_date'] = '';
           }
@@ -56,15 +58,17 @@ class _LayananPageState extends State<LayananPage> {
         }).toList();
 
         requests.sort((a, b) {
-          Timestamp tsA = a['timestamp'] ?? Timestamp.fromMillisecondsSinceEpoch(0);
-          Timestamp tsB = b['timestamp'] ?? Timestamp.fromMillisecondsSinceEpoch(0);
+          Timestamp tsA =
+              a['timestamp'] ?? Timestamp.fromMillisecondsSinceEpoch(0);
+          Timestamp tsB =
+              b['timestamp'] ?? Timestamp.fromMillisecondsSinceEpoch(0);
           return tsB.compareTo(tsA);
         });
         return requests;
       },
     );
   }
-  
+
   /// Fungsi untuk mengubah status request menjadi 'selesai'
   Future<void> _completeRequest(Map<String, dynamic> requestData) async {
     String collectionName;
@@ -82,10 +86,9 @@ class _LayananPageState extends State<LayananPage> {
       return;
     }
     try {
-      await _firestore
-          .collection(collectionName)
-          .doc(requestData['id'])
-          .update({'status': 'selesai'});
+      await _firestore.collection(collectionName).doc(requestData['id']).update(
+        {'status': 'selesai'},
+      );
       // Tidak perlu setState karena StreamBuilder akan update otomatis
     } catch (e) {
       print("Error updating data: $e");
@@ -120,13 +123,15 @@ class _LayananPageState extends State<LayananPage> {
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(child: Text('Belum ada layanan masuk.'));
           }
-          
+
           final allRequests = snapshot.data!;
-          final pendingRequests =
-              allRequests.where((req) => req['status'] == 'pending').toList();
-          final completedRequests =
-              allRequests.where((req) => req['status'] == 'selesai').toList();
-              
+          final pendingRequests = allRequests
+              .where((req) => req['status'] == 'pending')
+              .toList();
+          final completedRequests = allRequests
+              .where((req) => req['status'] == 'selesai')
+              .toList();
+
           return Stack(
             children: [
               PermintaanMasuk(
@@ -171,7 +176,7 @@ class PermintaanMasuk extends StatelessWidget {
     required this.completedRequests,
   });
 
-   @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -186,12 +191,23 @@ class PermintaanMasuk extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(16.0),
-            decoration: BoxDecoration(color: const Color(0xFFFCE4EC), borderRadius: BorderRadius.circular(12.0)),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFCE4EC),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
             child: Row(
               children: [
-                Text(pendingRequests.length.toString(), style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold)),
+                Text(
+                  pendingRequests.length.toString(),
+                  style: const TextStyle(
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(width: 12),
-                const Expanded(child: Text('Permintaan Layanan yang belum selesai')),
+                const Expanded(
+                  child: Text('Permintaan Layanan yang belum selesai'),
+                ),
               ],
             ),
           ),
@@ -211,13 +227,22 @@ class PermintaanMasuk extends StatelessWidget {
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(16.0),
-            decoration: BoxDecoration(color: Colors.green[100], borderRadius: BorderRadius.circular(12.0)),
+            decoration: BoxDecoration(
+              color: Colors.green[100],
+              borderRadius: BorderRadius.circular(12.0),
+            ),
             child: Row(
               children: [
                 Expanded(
                   child: Row(
                     children: [
-                      Text(completedRequests.length.toString(), style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold)),
+                      Text(
+                        completedRequests.length.toString(),
+                        style: const TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(width: 12),
                       const Expanded(child: Text("Layanan yang sudah selesai")),
                     ],
@@ -253,13 +278,9 @@ class LayananSelesaiPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Layanan Selesai'),
-      ),
+      appBar: AppBar(title: const Text('Layanan Selesai')),
       body: completedRequests.isEmpty
-          ? const Center(
-              child: Text('Belum ada layanan yang selesai.'),
-            )
+          ? const Center(child: Text('Belum ada layanan yang selesai.'))
           : ListView.builder(
               padding: const EdgeInsets.all(16.0),
               itemCount: completedRequests.length,
@@ -290,7 +311,10 @@ class _CardPermintaanLayanan extends StatelessWidget {
   // ... (Tidak ada perubahan di sini)
   final Map<String, dynamic> item;
   final VoidCallback onDetailPressed;
-  const _CardPermintaanLayanan({required this.item, required this.onDetailPressed});
+  const _CardPermintaanLayanan({
+    required this.item,
+    required this.onDetailPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -308,8 +332,17 @@ class _CardPermintaanLayanan extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                Text(displayDate, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  displayDate,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
               ],
             ),
             const SizedBox(height: 4),
@@ -319,8 +352,11 @@ class _CardPermintaanLayanan extends StatelessWidget {
                 Text(name, style: const TextStyle(color: Colors.black54)),
                 TextButton(
                   onPressed: onDetailPressed,
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(50, 30),
+                  ),
                   child: const Text('Detail'),
-                  style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 30)),
                 ),
               ],
             ),
@@ -333,7 +369,7 @@ class _CardPermintaanLayanan extends StatelessWidget {
 
 class DetailPermintaanLayanan extends StatelessWidget {
   // ... (Tidak ada perubahan di sini)
-    final Map<String, dynamic> requestData;
+  final Map<String, dynamic> requestData;
   final VoidCallback onBackPressed;
   final VoidCallback? onCompleted;
   final bool isCompletedView;
@@ -345,6 +381,87 @@ class DetailPermintaanLayanan extends StatelessWidget {
     this.onCompleted,
     this.isCompletedView = false,
   });
+
+  void openEmail({
+    required BuildContext context,
+    required String toEmail,
+    String? subject,
+    String? body,
+  }) async {
+    // Membuat map untuk query parameters
+    final Map<String, String> queryParameters = {
+      if (subject != null) 'subject': subject,
+      if (body != null) 'body': body,
+    };
+
+    // Membuat URI dengan skema mailto
+    final Uri emailUri = Uri(
+      scheme: 'mailto',
+      path: toEmail,
+      query: queryParameters.isNotEmpty
+          ? Uri.encodeQueryComponent(
+              queryParameters.entries
+                  .map((e) => '${e.key}=${e.value}')
+                  .join('&'),
+            )
+          : null,
+    );
+
+    try {
+      if (await canLaunchUrl(emailUri)) {
+        await launchUrl(emailUri);
+      } else {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tidak dapat menemukan aplikasi email.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Terjadi kesalahan: $e')));
+    }
+  }
+
+  void openWhatsApp({
+    required BuildContext context,
+    required String phoneNumber,
+    String? message,
+  }) async {
+    String formattedPhoneNumber = formatNomorWhatsapp(phoneNumber);
+    final Uri whatsappUrl = Uri.parse(
+      'https://wa.me/$formattedPhoneNumber?text=${Uri.encodeComponent(message ?? '')}',
+    );
+
+    try {
+      if (await canLaunchUrl(whatsappUrl)) {
+        await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Tidak dapat membuka WhatsApp.')),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Terjadi kesalahan: $e')));
+      }
+    }
+  }
+
+  String formatNomorWhatsapp(String nomor) {
+    String nomorBersih = nomor.replaceAll(RegExp(r'\D'), '');
+    if (nomorBersih.startsWith('0')) {
+      return '62${nomorBersih.substring(1)}';
+    }
+    return nomorBersih;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -362,7 +479,9 @@ class DetailPermintaanLayanan extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               elevation: 4,
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -370,21 +489,55 @@ class DetailPermintaanLayanan extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            const Text('Hubungi Melalui', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text(
+              'Hubungi Melalui',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
-                ElevatedButton.icon(onPressed: () {}, icon: const Icon(Icons.email_outlined), label: const Text('Email'), style: ElevatedButton.styleFrom(backgroundColor: Colors.orange[100], foregroundColor: Colors.black87, elevation: 0)),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    openEmail(context: context, toEmail: requestData['email']);
+                  },
+                  icon: const Icon(Icons.email_outlined),
+                  label: const Text('Email'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange[100],
+                    foregroundColor: Colors.black87,
+                    elevation: 0,
+                  ),
+                ),
                 const SizedBox(width: 12),
-                ElevatedButton.icon(onPressed: () {}, icon: const Icon(Icons.wechat), label: const Text('WhatsApp'), style: ElevatedButton.styleFrom(backgroundColor: Colors.green[100], foregroundColor: Colors.black87, elevation: 0)),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    openWhatsApp(
+                      context: context,
+                      phoneNumber: requestData['phone_num'],
+                      message: 'Layanan Sudah Diproses. Terimakasih.',
+                    );
+                  },
+                  icon: const Icon(Icons.wechat),
+                  label: const Text('WhatsApp'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[100],
+                    foregroundColor: Colors.black87,
+                    elevation: 0,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 40),
             if (!isCompletedView)
               ElevatedButton(
                 onPressed: onCompleted,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
                 child: const Text('Sudah Selesai'),
-                style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
               ),
           ],
         ),
@@ -395,8 +548,21 @@ class DetailPermintaanLayanan extends StatelessWidget {
   Widget _buildDetailContent(Map<String, dynamic> data) {
     switch (data['title']) {
       case 'Permintaan Data':
-        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildDetailRow('Nama Lengkap', data['name'] ?? '-'), _buildDetailRow('Nama Instansi', data['instansi'] ?? '-'), _buildDetailRow('No WA Aktif', data['phone_num'] ?? '-'), _buildDetailRow('Email Aktif', data['email'] ?? '-'), _buildDetailRow('Data yang Diminta', data['data_req'] ?? '-'), _buildDetailFileRow(label: 'Surat Permintaan Data', filePath: data['path_file'] ?? '')]);
-      
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailRow('Nama Lengkap', data['name'] ?? '-'),
+            _buildDetailRow('Nama Instansi', data['instansi'] ?? '-'),
+            _buildDetailRow('No WA Aktif', data['phone_num'] ?? '-'),
+            _buildDetailRow('Email Aktif', data['email'] ?? '-'),
+            _buildDetailRow('Data yang Diminta', data['data_req'] ?? '-'),
+            _BuildDetailFileRow(
+              label: 'Surat Permintaan Data',
+              filePath: data['path_file'] ?? '',
+            ),
+          ],
+        );
+
       case 'Konsultasi':
         String scheduledDate = '-';
         final dynamic consultDate = data['date'];
@@ -416,22 +582,34 @@ class DetailPermintaanLayanan extends StatelessWidget {
             _buildDetailRow('Email Aktif', data['email'] ?? '-'),
             _buildDetailRow('Topik Konsultasi', data['topik'] ?? '-'),
             _buildDetailRow('Jadwal Konsultasi', scheduledDate),
-          ]
+          ],
         );
 
       case 'Pengaduan':
-        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildDetailRow('Jenis Pengaduan', data['complain_type'] ?? '-'), _buildDetailRow('Nama Lengkap', data['name'] ?? '-'), _buildDetailRow('No WA Aktif', data['phone_num'] ?? '-'), _buildDetailRow('Email Aktif', data['email'] ?? '-'), _buildDetailRow('Pengaduan', data['complain_text'] ?? '-')]);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailRow('Jenis Pengaduan', data['complain_type'] ?? '-'),
+            _buildDetailRow('Nama Lengkap', data['name'] ?? '-'),
+            _buildDetailRow('No WA Aktif', data['phone_num'] ?? '-'),
+            _buildDetailRow('Email Aktif', data['email'] ?? '-'),
+            _buildDetailRow('Pengaduan', data['complain_text'] ?? '-'),
+          ],
+        );
 
       case 'Pengajuan Magang':
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildDetailRow('Nama Lengkap', data['name'] ?? '-'),
-            _buildDetailRow('NIK/Nomor Kartu Pelajar', data['identity_num'] ?? '-'),
+            _buildDetailRow(
+              'NIK/Nomor Kartu Pelajar',
+              data['identity_num'] ?? '-',
+            ),
             _buildDetailRow('No WA Aktif', data['phone_num'] ?? '-'),
             _buildDetailRow('Email Aktif', data['email'] ?? '-'),
-            _buildDetailRow('Keperluan', data['keperluan'] ?? '-')
-          ]
+            _buildDetailRow('Keperluan', data['keperluan'] ?? '-'),
+          ],
         );
 
       default:
@@ -442,7 +620,18 @@ class DetailPermintaanLayanan extends StatelessWidget {
   Widget _buildDetailRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)), const SizedBox(height: 4), Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), const Divider(height: 16)]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const Divider(height: 16),
+        ],
+      ),
     );
   }
 }
@@ -451,17 +640,17 @@ class DetailPermintaanLayanan extends StatelessWidget {
 // WIDGET BARU UNTUK MENANGANI FILE
 //==================================================================
 
-class _buildDetailFileRow extends StatefulWidget {
+class _BuildDetailFileRow extends StatefulWidget {
   final String label;
   final String filePath;
 
-  const _buildDetailFileRow({required this.label, required this.filePath});
+  const _BuildDetailFileRow({required this.label, required this.filePath});
 
   @override
-  State<_buildDetailFileRow> createState() => __buildDetailFileRowState();
+  State<_BuildDetailFileRow> createState() => __BuildDetailFileRowState();
 }
 
-class __buildDetailFileRowState extends State<_buildDetailFileRow> {
+class __BuildDetailFileRowState extends State<_BuildDetailFileRow> {
   String? _downloadURL;
   String _fileName = 'Membuka file...';
   bool _isLoading = true;
@@ -502,9 +691,11 @@ class __buildDetailFileRowState extends State<_buildDetailFileRow> {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Tidak bisa membuka file: $_fileName')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Tidak bisa membuka file: $_fileName')),
+          );
+        }
       }
     }
   }
@@ -516,10 +707,16 @@ class __buildDetailFileRowState extends State<_buildDetailFileRow> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(widget.label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          Text(
+            widget.label,
+            style: const TextStyle(color: Colors.grey, fontSize: 12),
+          ),
           const SizedBox(height: 8),
           if (widget.filePath.isEmpty)
-            const Text('Tidak ada file dilampirkan.', style: TextStyle(fontStyle: FontStyle.italic))
+            const Text(
+              'Tidak ada file dilampirkan.',
+              style: TextStyle(fontStyle: FontStyle.italic),
+            )
           else if (_isLoading)
             const Center(child: LinearProgressIndicator())
           else
