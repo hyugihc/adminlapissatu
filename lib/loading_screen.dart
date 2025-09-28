@@ -16,9 +16,7 @@ class _LoadingScreenState extends State<LoadingScreen> {
     Timer(const Duration(seconds: 1), () {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (context) => const HomePage(),
-        ),
+        MaterialPageRoute(builder: (context) => const HomePage()),
       );
     });
   }
@@ -31,10 +29,7 @@ class _LoadingScreenState extends State<LoadingScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset(
-              'lib/assets/logo bps.png',
-              width: 150,
-            ),
+            Image.asset('lib/assets/logo bps.png', width: 150),
             const SizedBox(height: 14),
             const Text(
               "LAPIS SATU",

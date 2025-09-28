@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+
 import 'layanan_masuk.dart';
 import 'update_homepage.dart';
 import 'update_infografis.dart';
 import 'update_publikasi.dart';
 import 'update_data.dart';
+import 'notification_service.dart';
 // import 'excel_to_db.dart';
 
 class HomePage extends StatefulWidget {
@@ -23,6 +26,23 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _setupDashboardStream();
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      // print('Got a message whilst in the foreground!');
+
+      if (message.notification != null) {
+        // Ambil judul atau isi pesan untuk ditampilkan
+        String notificationMessage =
+            message.notification!.title ??
+            message.notification!.body ??
+            "Anda menerima pesan baru!";
+        if (mounted) {
+          NotificationService().showCustomSnackBar(
+            context,
+            notificationMessage,
+          );
+        }
+      }
+    });
   }
 
   void _setupDashboardStream() {

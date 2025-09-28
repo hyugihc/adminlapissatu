@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 // import 'package:file_picker/file_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
+import 'package:intl/intl.dart';
 // import 'dart:convert' show utf8;
 
+import 'edit_data.dart';
 import 'input_manual_page.dart';
 
 enum MenuOption { uploadExcel, inputManual }
@@ -35,43 +36,95 @@ class _UpdateDataState extends State<UpdateData> {
   Future<List<Map<String, String>>> _fetchData() async {
     final snapshot = await FirebaseFirestore.instance
         .collection('/data-umum/title/list_title/')
+        .orderBy('judul')
         .get();
 
     final fetchedMap = [
       for (var doc in snapshot.docs)
-        {'title': (doc['judul'] as String), 'link': (doc['link'] as String)},
+        {
+          'id': doc.id,
+          'title': (doc['judul'] as String),
+          'link': (doc['link'] as String),
+        },
     ];
 
     return fetchedMap;
   }
 
   void _seeData({required Map<String, String> initialData}) async {
-    Navigator.push(
+    bool isRefresh = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ShowData(initialData: initialData),
       ),
     );
+
+    if (isRefresh) {
+      final freshData = await _fetchData();
+      setState(() {
+        _dataList = freshData;
+      });
+    }
   }
 
-  // void _showFormDialog({Map<String, String>? initialData, int? index}) async {
-  //   final result = await showDialog<Map<String, String>>(
-  //     context: context,
-  //     builder: (context) {
-  //       return DataFormDialog(initialData: initialData);
-  //     },
-  //   );
+  Future<void> _addManualInput() async {
+    bool? isAdded = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => ManualInputPage()),
+    );
 
-  //   if (result != null) {
-  //     setState(() {
-  //       if (index != null) {
-  //         _dataList[index] = result;
-  //       } else {
-  //         _dataList.add(result);
-  //       }
-  //     });
-  //   }
-  // }
+    if (isAdded == null) return;
+    if (isAdded) {
+      final newData = await _fetchData();
+      setState(() {
+        _dataList = newData;
+      });
+    }
+  }
+
+  Future<void> showUnderDevelopmentDialog(BuildContext context) {
+    return showDialog<void>(
+      context: context,
+      // Pengguna harus menekan tombol untuk menutup dialog
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          // Menambahkan ikon untuk membuatnya lebih menarik secara visual
+          icon: const Icon(Icons.construction_outlined, size: 48),
+          title: const Text(
+            'Segera Hadir!',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: const SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text(
+                  'Fitur ini sedang dalam tahap pengembangan.',
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Terima kasih atas kesabaran Anda.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            // Tombol untuk menutup dialog
+            TextButton(
+              child: const Text('Mengerti'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+          actionsAlignment: MainAxisAlignment.center,
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -106,12 +159,10 @@ class _UpdateDataState extends State<UpdateData> {
           // Logika untuk menangani pilihan
           switch (item) {
             case MenuOption.uploadExcel:
+              showUnderDevelopmentDialog(context);
               break;
             case MenuOption.inputManual:
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => ManualInputPage()),
-              );
+              _addManualInput();
               break;
           }
         },
@@ -300,24 +351,117 @@ class _ShowData extends State<ShowData> {
   late final String linkData;
   late Future<QuerySnapshot> _kontakFuture;
   List<String> _namaKolom = [];
+  QuerySnapshot? _cachedSnapshots;
+  bool isChanged = false;
 
   @override
   void initState() {
     super.initState();
     linkData = widget.initialData['link']!;
-    _kontakFuture = FirebaseFirestore.instance
-        .collection(linkData)
-        .orderBy('tahun')
-        .get();
+    _kontakFuture = FirebaseFirestore.instance.collection(linkData).get();
   }
 
-  void _hapusData() {
+  void _showStatusDialog(
+    BuildContext context, {
+    required IconData icon,
+    required Color color,
+    required String message,
+  }) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
+        // Otomatis tutup dialog setelah 2 detik
+        Future.delayed(const Duration(seconds: 1), () {
+          if (context.mounted) {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
+          }
+        });
+
         return AlertDialog(
-          title: const Text('Konfirmasi Hapus'),
-          content: const Text('Apakah Anda yakin ingin menghapus data ini?'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 80),
+              const SizedBox(height: 16),
+              Text(
+                message,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteData() async {
+    try {
+      final snapshot = _cachedSnapshots!;
+
+      final batch = FirebaseFirestore.instance.batch();
+
+      for (var doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+
+      await batch.commit();
+
+      FirebaseFirestore.instance
+          .collection('/data-umum/title/list_title/')
+          .doc(widget.initialData['id'])
+          .delete();
+
+      isChanged = true;
+      if (mounted) {
+        _showStatusDialog(
+          context,
+          icon: Icons.check_circle_outline,
+          color: Colors.green,
+          message: 'Berhasil Dihapus!',
+        );
+      }
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+
+      Navigator.pop(context, isChanged);
+    } catch (e) {
+      print(e);
+
+      if (!mounted) return;
+      _showStatusDialog(
+        context,
+        icon: Icons.highlight_off,
+        color: Colors.red,
+        message: 'Gagal Menghapus Data\nSilakan Coba Lagi',
+      );
+    }
+  }
+
+  Future<void> _showConfirmationDialog() async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('⚠️ Konfirmasi'),
+          content: const SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text('Data yang sudah dihapus tidak bisa dikembalikan.'),
+                SizedBox(height: 8),
+                Text('Apakah Anda yakin?'),
+              ],
+            ),
+          ),
           actions: <Widget>[
             TextButton(
               child: const Text('Batal'),
@@ -327,12 +471,10 @@ class _ShowData extends State<ShowData> {
             ),
             TextButton(
               style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Hapus'),
+              child: const Text('YA, HAPUS'),
               onPressed: () {
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Data berhasil dihapus')),
-                );
+                Navigator.of(context).pop(); // Tutup dialog
+                _deleteData(); // Lanjutkan ke proses hapus
               },
             ),
           ],
@@ -366,7 +508,7 @@ class _ShowData extends State<ShowData> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
-            Navigator.of(context).pop();
+            Navigator.pop(context, isChanged);
           },
         ),
       ),
@@ -384,6 +526,8 @@ class _ShowData extends State<ShowData> {
               child: Text('Belum ada data / Atau Kemungkinan ada kesalahan!'),
             );
           }
+
+          _cachedSnapshots = snapshot.data!;
 
           Map<String, dynamic> dataColumns =
               snapshot.data!.docs.first.data() as Map<String, dynamic>;
@@ -404,9 +548,16 @@ class _ShowData extends State<ShowData> {
                 return null;
               }),
               cells: _namaKolom.map((kolom) {
-                return DataCell(
-                  Center(child: Text((data[kolom] ?? '-').toString())),
-                );
+                final value = data[kolom];
+                String displayValue = '';
+                if (value is Timestamp) {
+                  displayValue = DateFormat(
+                    'dd/MM/yyyy',
+                  ).format(value.toDate());
+                } else {
+                  displayValue = value?.toString() ?? '';
+                }
+                return DataCell(Center(child: Text(displayValue)));
               }).toList(),
             );
           }).toList();
@@ -430,27 +581,23 @@ class _ShowData extends State<ShowData> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    // Mencegah konten di dalam Card keluar dari sudut yang melengkung
                     clipBehavior: Clip.antiAlias,
                     child: Row(
                       children: [
                         Expanded(
                           child: DataTable(
-                            // ======== DEKORASI HEADER ========
                             headingRowColor: WidgetStateProperty.all(
                               Colors.blue[700],
-                            ), // Warna latar header
+                            ),
                             headingTextStyle: const TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Colors.white, // Warna teks header
+                              color: Colors.white,
                               fontSize: 16,
                             ),
 
-                            // ======== GARIS BATAS & SPASI ========
                             border: TableBorder.all(
                               width: 1,
-                              color:
-                                  Colors.grey.shade300, // Warna garis batas sel
+                              color: Colors.grey.shade300,
                               borderRadius: BorderRadius.circular(
                                 11,
                               ), // Sesuaikan dengan radius Card
@@ -473,17 +620,13 @@ class _ShowData extends State<ShowData> {
                               );
                             }).toList(),
 
-                            // ======== BARIS DATA ========
                             rows: dataRows,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(
-                    height: 24,
-                  ), // Memberi jarak dari tabel ke tombol
-
+                  const SizedBox(height: 24),
                   Row(
                     children: [
                       // Tombol Edit Data
@@ -491,7 +634,17 @@ class _ShowData extends State<ShowData> {
                         child: ElevatedButton.icon(
                           icon: const Icon(Icons.edit),
                           label: const Text('Edit'),
-                          onPressed: () {},
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EditableDataPage(
+                                  initialSnapshot: _cachedSnapshots!,
+                                  collectionPath: linkData,
+                                ),
+                              ),
+                            );
+                          },
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
@@ -502,25 +655,27 @@ class _ShowData extends State<ShowData> {
                       ),
                       const SizedBox(width: 10), // Jarak antar tombol
                       // Tombol Ganti Data
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          icon: const Icon(Icons.sync_alt),
-                          label: const Text('Ganti Baru'),
-                          onPressed: () {},
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
+                      // Expanded(
+                      //   child: ElevatedButton.icon(
+                      //     icon: const Icon(Icons.sync_alt),
+                      //     label: const Text('Ganti Baru'),
+                      //     onPressed: () {},
+                      //     style: ElevatedButton.styleFrom(
+                      //       padding: const EdgeInsets.symmetric(vertical: 12),
+                      //       shape: RoundedRectangleBorder(
+                      //         borderRadius: BorderRadius.circular(10),
+                      //       ),
+                      //     ),
+                      //   ),
+                      // ),
+                      // const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton.icon(
                           icon: const Icon(Icons.delete_forever),
                           label: const Text('Hapus'),
-                          onPressed: _hapusData,
+                          onPressed: () {
+                            _showConfirmationDialog();
+                          },
                           style: ElevatedButton.styleFrom(
                             backgroundColor:
                                 Colors.red[700], // Warna merah untuk aksi hapus

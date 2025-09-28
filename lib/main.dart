@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'loading_screen.dart';
-import 'package:intl/date_symbol_data_local.dart'; // <-- 1. TAMBAHKAN IMPORT INI
-
+import 'package:intl/date_symbol_data_local.dart';
+import 'notification_service.dart';
 
 void main() async {
   // 1. Ensure that the Flutter bindings are initialized
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await initializeDateFormatting('id_ID', null);
+  await NotificationService().initNotifications();
 
   // 3. Run the app ONCE after initialization is complete
   runApp(const MyApp());
