@@ -1,7 +1,8 @@
+import 'package:admin_lapissatu/atoms/widgets_data.dart';
 import 'package:flutter/material.dart';
 // import 'package:file_picker/file_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
+// import 'package:intl/intl.dart';
 // import 'dart:convert' show utf8;
 
 import 'edit_data.dart';
@@ -52,14 +53,14 @@ class _UpdateDataState extends State<UpdateData> {
   }
 
   void _seeData({required Map<String, String> initialData}) async {
-    bool isRefresh = await Navigator.push(
+    final isRefresh = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ShowData(initialData: initialData),
       ),
     );
 
-    if (isRefresh) {
+    if (isRefresh == true) {
       final freshData = await _fetchData();
       setState(() {
         _dataList = freshData;
@@ -210,135 +211,6 @@ class _UpdateDataState extends State<UpdateData> {
   }
 }
 
-// class DataFormDialog extends StatefulWidget {
-//   final Map<String, String>? initialData;
-//   const DataFormDialog({this.initialData});
-
-//   @override
-//   State<DataFormDialog> createState() => _DataFormDialogState();
-// }
-
-// class _DataFormDialogState extends State<DataFormDialog> {
-//   final _formKey = GlobalKey<FormState>();
-//   late TextEditingController _titleController;
-
-//   String? _pickedFileName;
-//   String? _pickedFileContent;
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     _titleController = TextEditingController(
-//       text: widget.initialData?['title'] ?? '',
-//     );
-//     if (widget.initialData != null) {
-//       _pickedFileContent = widget.initialData?['table_data'];
-//       _pickedFileName = 'data_lama.csv';
-//     }
-//   }
-
-//   @override
-//   void dispose() {
-//     _titleController.dispose();
-//     super.dispose();
-//   }
-
-//   Future<void> _pickFile() async {
-//     FilePickerResult? result = await FilePicker.platform.pickFiles(
-//       type: FileType.custom,
-//       allowedExtensions: ['csv', 'xlsx', 'xls'],
-//       withData: true,
-//     );
-
-//     if (result != null) {
-//       setState(() {
-//         final file = result.files.first;
-//         _pickedFileName = file.name;
-//         _pickedFileContent = utf8.decode(file.bytes!);
-//       });
-//     }
-//   }
-
-//   void _submit() {
-//     if (_formKey.currentState!.validate()) {
-//       if (_pickedFileContent == null) {
-//         ScaffoldMessenger.of(context).showSnackBar(
-//           const SnackBar(
-//             content: Text('Harap pilih file tabel terlebih dahulu'),
-//           ),
-//         );
-//         return;
-//       }
-//       final result = {
-//         'title': _titleController.text,
-//         'table_data': _pickedFileContent!,
-//       };
-//       Navigator.pop(context, result);
-//     }
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return AlertDialog(
-//       title: Text(
-//         widget.initialData == null ? 'Tambah Data Baru' : 'Edit Data',
-//       ),
-//       content: Form(
-//         key: _formKey,
-//         child: SingleChildScrollView(
-//           child: Column(
-//             mainAxisSize: MainAxisSize.min,
-//             crossAxisAlignment: CrossAxisAlignment.start,
-//             children: [
-//               TextFormField(
-//                 controller: _titleController,
-//                 decoration: const InputDecoration(labelText: 'Judul Data'),
-//                 validator: (v) =>
-//                     v!.isEmpty ? 'Judul tidak boleh kosong' : null,
-//               ),
-//               const SizedBox(height: 24),
-//               const Text(
-//                 'Isi Tabel',
-//                 style: TextStyle(fontWeight: FontWeight.bold),
-//               ),
-//               const SizedBox(height: 8),
-//               Container(
-//                 padding: const EdgeInsets.all(12),
-//                 decoration: BoxDecoration(
-//                   border: Border.all(color: Colors.grey.shade400),
-//                   borderRadius: BorderRadius.circular(8),
-//                 ),
-//                 child: Row(
-//                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                   children: [
-//                     Expanded(
-//                       child: Text(
-//                         _pickedFileName ?? 'Tidak ada file dipilih',
-//                         overflow: TextOverflow.ellipsis,
-//                       ),
-//                     ),
-//                     OutlinedButton(
-//                       onPressed: _pickFile,
-//                       child: const Text('Pilih File'),
-//                     ),
-//                   ],
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//       actions: [
-//         TextButton(
-//           onPressed: () => Navigator.pop(context),
-//           child: const Text('Batal'),
-//         ),
-//         ElevatedButton(onPressed: _submit, child: const Text('Simpan')),
-//       ],
-//     );
-//   }
-// }
-
 class ShowData extends StatefulWidget {
   final Map<String, String> initialData;
   const ShowData({super.key, required this.initialData});
@@ -350,9 +222,10 @@ class ShowData extends StatefulWidget {
 class _ShowData extends State<ShowData> {
   late final String linkData;
   late Future<QuerySnapshot> _kontakFuture;
-  List<String> _namaKolom = [];
   QuerySnapshot? _cachedSnapshots;
   bool isChanged = false;
+  Map<String, dynamic> _atribute = {};
+  List<Map<String, dynamic>> data = [];
 
   @override
   void initState() {
@@ -370,7 +243,6 @@ class _ShowData extends State<ShowData> {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        // Otomatis tutup dialog setelah 2 detik
         Future.delayed(const Duration(seconds: 1), () {
           if (context.mounted) {
             if (Navigator.of(context).canPop()) {
@@ -528,39 +400,14 @@ class _ShowData extends State<ShowData> {
           }
 
           _cachedSnapshots = snapshot.data!;
+          for (var doc in _cachedSnapshots!.docs) {
+            if (doc.id == 'atribut') {
+              _atribute = doc.data() as Map<String, dynamic>;
+            } else {
+              data.add(doc.data() as Map<String, dynamic>);
+            }
+          }
 
-          Map<String, dynamic> dataColumns =
-              snapshot.data!.docs.first.data() as Map<String, dynamic>;
-          _namaKolom = dataColumns.keys.toList();
-
-          List<DataRow> dataRows = snapshot.data!.docs.asMap().entries.map((
-            entry,
-          ) {
-            int index = entry.key;
-            DocumentSnapshot document = entry.value;
-            Map<String, dynamic> data =
-                document.data()! as Map<String, dynamic>;
-            return DataRow(
-              color: WidgetStateProperty.resolveWith<Color?>((states) {
-                if (index.isEven) {
-                  return Colors.grey.withValues(alpha: .1);
-                }
-                return null;
-              }),
-              cells: _namaKolom.map((kolom) {
-                final value = data[kolom];
-                String displayValue = '';
-                if (value is Timestamp) {
-                  displayValue = DateFormat(
-                    'dd/MM/yyyy',
-                  ).format(value.toDate());
-                } else {
-                  displayValue = value?.toString() ?? '';
-                }
-                return DataCell(Center(child: Text(displayValue)));
-              }).toList(),
-            );
-          }).toList();
           return SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -576,57 +423,19 @@ class _ShowData extends State<ShowData> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: DataTable(
-                            headingRowColor: WidgetStateProperty.all(
-                              Colors.blue[700],
-                            ),
-                            headingTextStyle: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              fontSize: 16,
-                            ),
-
-                            border: TableBorder.all(
-                              width: 1,
-                              color: Colors.grey.shade300,
-                              borderRadius: BorderRadius.circular(
-                                11,
-                              ), // Sesuaikan dengan radius Card
-                            ),
-                            horizontalMargin:
-                                0, // Hapus margin bawaan di kiri dan kanan
-                            columnSpacing: 16,
-
-                            // ======== KOLOM (HEADER) ========
-                            columns: _namaKolom.map((String columnName) {
-                              return DataColumn(
-                                label: Expanded(
-                                  child: Center(
-                                    child: Text(
-                                      columnName,
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-
-                            rows: dataRows,
-                          ),
+                  // #########
+                  if (_atribute.isEmpty || data.isEmpty)
+                    const Center(
+                      child: Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Text('KOSONG TEMPEK'),
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
+                      ),
+                    )
+                  else
+                    DesignedTableData(atribute: _atribute, data: data),
+                  const SizedBox(height: 16),
                   Row(
                     children: [
                       // Tombol Edit Data

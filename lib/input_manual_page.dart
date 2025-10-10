@@ -1,10 +1,15 @@
+// import 'package:excel/excel.dart';
+import 'package:admin_lapissatu/atoms/widgets_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:math';
+import 'package:month_year_picker/month_year_picker.dart';
 
-enum DataType { string, number, timestamp }
+import 'dart:math';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'atoms/enum_var.dart';
 
 class ColumnDefinition {
   final String name;
@@ -23,8 +28,11 @@ class ManualInputPage extends StatefulWidget {
 class _ManualInputPageState extends State<ManualInputPage> {
   // 1. STATE UNTUK MANAJEMEN ALUR
   int _currentStep = 1;
-  final List<ColumnDefinition> _columns = [];
-  final List<Map<String, dynamic>> _rowData = [];
+  final List<ColumnDefinition> _columns = [
+    ColumnDefinition(name: 'id_row', type: DataType.integer),
+  ];
+  Map<String, dynamic> _atribut = {};
+  List<Map<String, dynamic>> _rowData = [];
 
   // 2. STATE UNTUK FORM INPUT
   final _formKey = GlobalKey<FormState>();
@@ -32,19 +40,24 @@ class _ManualInputPageState extends State<ManualInputPage> {
   late Map<String, TextEditingController> _controllers;
   late Map<String, DateTime?> _dateValues;
   final TextEditingController _titleController = TextEditingController();
+  String? _kategoriData;
+  final List<String> _items = Category.values.map((e) => e.name).toList();
   bool editing = false;
   int? idxEdited;
+
+  final String _atributKey = 'atribut_data';
+  final String _draftKey = 'isi_data_draft';
 
   @override
   void initState() {
     super.initState();
     _controllers = {};
     _dateValues = {};
+    _loadDraft();
   }
 
   @override
   void dispose() {
-    // Pastikan untuk dispose semua controller
     for (var controller in _controllers.values) {
       controller.dispose();
     }
@@ -77,12 +90,25 @@ class _ManualInputPageState extends State<ManualInputPage> {
                 },
               ),
               const SizedBox(height: 16),
-              // Dropdown untuk memilih tipe data
               DropdownButtonFormField<DataType>(
+                isExpanded: true,
                 initialValue: selectedType,
                 decoration: const InputDecoration(labelText: 'Tipe Data'),
                 items: DataType.values.map((type) {
-                  return DropdownMenuItem(value: type, child: Text(type.name));
+                  return DropdownMenuItem(
+                    value: type,
+                    child: Text(overflow: TextOverflow.ellipsis, switch (type) {
+                      DataType.integer => 'Integer -> 10',
+                      DataType.float => 'Desimal -> 10.5',
+                      DataType.string => 'String -> "Hello"',
+                      DataType.datetime =>
+                        'Tanggal Waktu -> 2023-01-01 12:00:00',
+                      DataType.year => 'Tahun -> 2025',
+                      DataType.month => 'Bulan -> 01-2025',
+                      DataType.date => 'Tanggal -> 06-01-2025',
+                      DataType.money => 'Uang -> Rp. 100,00',
+                    }),
+                  );
                 }).toList(),
                 onChanged: (value) {
                   if (value != null) {
@@ -132,14 +158,26 @@ class _ManualInputPageState extends State<ManualInputPage> {
       }
       return;
     }
+    _atribut['title'] = _titleController.text;
 
     setState(() {
+      _atribut['column'] = null;
       for (var col in _columns) {
-        if (col.type == DataType.string || col.type == DataType.number) {
+        if (col.name == 'id_row') {
+          print('id_row exist');
+        } else if (col.type == DataType.string ||
+            col.type == DataType.integer ||
+            col.type == DataType.float ||
+            col.type == DataType.money ||
+            col.type == DataType.year) {
           _controllers[col.name] = TextEditingController();
-        } else if (col.type == DataType.timestamp) {
+        } else {
           _dateValues[col.name] = null;
         }
+        var columnMap = _atribut['column'] as List<Map<String, dynamic>>? ?? [];
+        columnMap.add({col.name: DataType.values.indexOf(col.type)});
+        _atribut['column'] = columnMap;
+        print('kolom ${col.name} ditambahkan');
       }
       _currentStep = 2;
       editing = false;
@@ -152,20 +190,31 @@ class _ManualInputPageState extends State<ManualInputPage> {
       case DataType.string:
         return TextFormField(
           controller: _controllers[column.name],
-          decoration: InputDecoration(labelText: column.name),
-          validator: (value) =>
-              (value == null || value.isEmpty) ? 'Wajib diisi' : null,
+          decoration: InputDecoration(labelText: '${column.name} (teks)'),
         );
-      case DataType.number:
+      case DataType.integer:
         return TextFormField(
           controller: _controllers[column.name],
-          decoration: InputDecoration(labelText: '${column.name} (Angka)'),
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          validator: (value) =>
-              (value == null || value.isEmpty) ? 'Wajib diisi' : null,
+          decoration: InputDecoration(
+            labelText: '${column.name} (bilangan bulat)',
+          ),
+          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^\-?\d*')),
+          ],
         );
-      case DataType.timestamp:
+      case DataType.float:
+        return TextFormField(
+          controller: _controllers[column.name],
+          decoration: InputDecoration(labelText: '${column.name} (desimal)'),
+          // 1. Ubah keyboardType agar mendukung input desimal
+          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          // 2. Ganti formatter untuk mengizinkan angka dan satu titik desimal
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^\-?\d*\.?\d*')),
+          ],
+        );
+      case DataType.date:
         return ListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(column.name),
@@ -189,31 +238,166 @@ class _ManualInputPageState extends State<ManualInputPage> {
             }
           },
         );
+      case DataType.year:
+        return ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(column.name),
+          subtitle: Text(
+            _controllers[column.name]!.text.isEmpty
+                ? 'Pilih Tahun'
+                : _controllers[column.name]!.text,
+          ),
+          trailing: const Icon(Icons.calendar_today),
+          onTap: () {
+            showDialog(
+              context: context,
+              builder: (BuildContext context) {
+                final int initialYear =
+                    int.tryParse(_controllers[column.name]!.text) ??
+                    DateTime.now().year;
+
+                return AlertDialog(
+                  title: const Text('Pilih Tahun'),
+                  content: SizedBox(
+                    width: 300,
+                    height: 300,
+                    child: YearPicker(
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2101),
+                      // initialDate: DateTime(initialYear),
+                      // selectedDate harus berupa DateTime, jadi kita buat dari initialYear
+                      selectedDate: DateTime(initialYear),
+                      onChanged: (DateTime dateTime) {
+                        // Update controller dengan tahun yang baru dipilih
+                        setState(() {
+                          _controllers[column.name]!.text = dateTime.year
+                              .toString();
+                        });
+                        // Tutup dialog setelah memilih
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      case DataType.month:
+        return ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(column.name),
+          subtitle: Text(
+            _dateValues[column.name] == null
+                ? 'Pilih Bulan'
+                : DateFormat(
+                    'MMMM yyyy',
+                    'id_ID',
+                  ).format(_dateValues[column.name]!),
+          ),
+          trailing: const Icon(Icons.calendar_today),
+          onTap: () async {
+            final picked = await showMonthYearPicker(
+              context: context,
+              initialDate: _dateValues[column.name] ?? DateTime.now(),
+              firstDate: DateTime(2000),
+              lastDate: DateTime(2101),
+            );
+
+            if (picked != null) {
+              setState(() {
+                _dateValues[column.name] = picked;
+              });
+            }
+          },
+        );
+      case DataType.money:
+        return TextFormField(
+          controller: _controllers[column.name],
+          decoration: InputDecoration(labelText: '${column.name} (Rupiah)'),
+          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^\-?\d*\.?\d*')),
+          ],
+        );
+      case DataType.datetime:
+        return ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(column.name),
+          subtitle: Text(
+            _dateValues[column.name] == null
+                ? 'Pilih Tanggal & Waktu'
+                // Format untuk menampilkan tanggal dan waktu
+                : DateFormat(
+                    'dd-MM-yyyy HH:mm',
+                  ).format(_dateValues[column.name]!),
+          ),
+          trailing: const Icon(Icons.calendar_today),
+          onTap: () async {
+            // 1. Tampilkan dialog untuk memilih tanggal
+            final DateTime? pickedDate = await showDatePicker(
+              context: context,
+              initialDate: _dateValues[column.name] ?? DateTime.now(),
+              firstDate: DateTime(2000),
+              lastDate: DateTime(2101),
+            );
+
+            // Jika pengguna batal memilih tanggal, hentikan proses
+            if (pickedDate == null) return;
+
+            // Pastikan widget masih ada sebelum melanjutkan (praktik terbaik)
+            if (!context.mounted) return;
+
+            final TimeOfDay? pickedTime = await showTimePicker(
+              context: context.mounted
+                  ? context
+                  : throw Exception('Context is null'),
+              initialTime: TimeOfDay.fromDateTime(
+                _dateValues[column.name] ?? DateTime.now(),
+              ),
+            );
+
+            // Jika pengguna batal memilih waktu, hentikan proses
+            if (pickedTime == null) return;
+
+            // 3. Gabungkan tanggal dan waktu menjadi satu objek DateTime
+            final DateTime finalDateTime = DateTime(
+              pickedDate.year,
+              pickedDate.month,
+              pickedDate.day,
+              pickedTime.hour,
+              pickedTime.minute,
+            );
+
+            // 4. Update state dengan nilai yang baru
+            setState(() {
+              _dateValues[column.name] = finalDateTime;
+            });
+          },
+        );
     }
   }
 
   void _addRowToPreview({bool isEdit = false, int? idx}) {
     if (_formKey.currentState!.validate()) {
-      // Validasi tambahan untuk timestamp
-      bool allDatesSelected = true;
-      for (var col in _columns) {
-        if (col.type == DataType.timestamp && _dateValues[col.name] == null) {
-          allDatesSelected = false;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Kolom tanggal "${col.name}" wajib diisi.')),
-          );
-          break;
-        }
-      }
-      if (!allDatesSelected) return;
-
       final newRow = <String, dynamic>{};
       for (var col in _columns) {
-        if (col.type == DataType.string || col.type == DataType.number) {
-          newRow[col.name] = _controllers[col.name]!.text;
-        } else if (col.type == DataType.timestamp) {
-          newRow[col.name] = _dateValues[col.name];
+        if (col.name == 'id_row') {
+          newRow[col.name] = _rowData.length + 1;
+          continue;
         }
+        newRow[col.name] = switch (col.type) {
+          DataType.string => _controllers[col.name]!.text,
+          DataType.integer => int.tryParse(_controllers[col.name]!.text) ?? 0,
+          DataType.float =>
+            double.tryParse(_controllers[col.name]!.text) ?? 0.0,
+          DataType.money =>
+            double.tryParse(_controllers[col.name]!.text) ?? 0.0,
+          DataType.date => _dateValues[col.name],
+          DataType.year => int.tryParse(_controllers[col.name]!.text) ?? 0,
+          DataType.month => _dateValues[col.name],
+          DataType.datetime => _dateValues[col.name],
+        };
       }
 
       setState(() {
@@ -222,7 +406,7 @@ class _ManualInputPageState extends State<ManualInputPage> {
         } else {
           _rowData.add(newRow);
         }
-        // Reset form
+
         _formKey.currentState!.reset();
         for (var controller in _controllers.values) {
           controller.clear();
@@ -232,8 +416,114 @@ class _ManualInputPageState extends State<ManualInputPage> {
         }
         editing = false;
         idxEdited = null;
+
+        for (int i = 0; i < _rowData.length; i++) {
+          _rowData[i]['id_row'] = i + 1;
+        }
       });
+      _saveDraft();
     }
+  }
+
+  Future<void> _saveDraft() async {
+    print(_rowData);
+    print(_columns);
+    List<Map<String, dynamic>> encodableData = _rowData.map((row) {
+      return row.map((key, value) {
+        if (value is DateTime) {
+          return MapEntry(key, value.toIso8601String());
+        }
+        if (value is Timestamp) {
+          return MapEntry(key, value.toDate().toIso8601String());
+        }
+        return MapEntry(key, value);
+      });
+    }).toList();
+
+    final prefs = await SharedPreferences.getInstance();
+
+    String atributString = jsonEncode(_atribut);
+    String jsonString = jsonEncode(encodableData);
+    await prefs.setString(_draftKey, jsonString);
+    await prefs.setString(_atributKey, atributString);
+    print('Draft saved: $jsonString');
+  }
+
+  Future<void> _deleteDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_draftKey);
+    await prefs.remove(_atributKey);
+    print('Draft deleted');
+  }
+
+  Future<void> _loadDraft() async {
+    print('loading draft...');
+    final prefs = await SharedPreferences.getInstance();
+    String? jsonString = prefs.getString(_draftKey);
+    String? atributString = prefs.getString(_atributKey);
+    print('Draft loaded: $jsonString');
+
+    if (atributString != null) {
+      print('Ada draft yang di Load!');
+      Map<String, dynamic> decodedMap = jsonDecode(atributString);
+      setState(() {
+        _atribut = decodedMap;
+        _titleController.text = _atribut['title'];
+        if (_atribut['category'] != null) {
+          _kategoriData = _items[_atribut['category']];
+        }
+        var tempCol = _atribut['column'] as List<dynamic>? ?? [];
+        _columns.clear();
+        for (var col in tempCol) {
+          _columns.add(
+            ColumnDefinition(
+              name: col.keys.first,
+              type: DataType.values[col.values.first],
+            ),
+          );
+        }
+      });
+      print(_atribut);
+    }
+    if (jsonString != null) {
+      List<dynamic> decodedList = jsonDecode(jsonString);
+      setState(() {
+        _rowData = List<Map<String, dynamic>>.from(decodedList);
+      });
+      const Set<DataType> dateTypes = {
+        DataType.month,
+        DataType.date,
+        DataType.datetime,
+      };
+
+      // Loop setiap definisi kolom dari _atribut
+      for (var col in _atribut['column']) {
+        // Ambil nama kolom dan tipe datanya
+        // Asumsi: key dari map 'col' adalah nama kolomnya
+        final String columnName = col.keys.first;
+        final DataType currentType = DataType.values[col.values.first];
+
+        // Cek apakah kolom ini adalah salah satu dari tipe tanggal
+        if (dateTypes.contains(currentType)) {
+          // Loop setiap baris data untuk melakukan konversi
+          for (var row in _rowData) {
+            final dynamic rawValue = row[columnName];
+            if (rawValue is String && rawValue.isNotEmpty) {
+              // Gunakan tryParse untuk keamanan, agar tidak error jika format salah
+              final DateTime? parsedDate = DateTime.tryParse(rawValue);
+
+              if (parsedDate != null) {
+                // Ganti nilai String di map dengan objek DateTime yang sudah jadi
+                row[columnName] = parsedDate;
+              }
+            }
+          }
+        }
+      }
+    }
+    print('_rowData: $_rowData');
+    print('_atribut: $_atribut');
+    print('_columns: $_columns');
   }
 
   Future<String?> uploadDataBatch(
@@ -245,15 +535,12 @@ class _ManualInputPageState extends State<ManualInputPage> {
     final koleksiRef = firestore.collection(link);
 
     WriteBatch batch = firestore.batch();
-
-    print('Mempersiapkan batch...');
     try {
       for (var dataMap in dataList) {
-        DocumentReference docRef = koleksiRef
-            .doc(); // Membuat dokumen dengan ID acak
-
+        DocumentReference docRef = koleksiRef.doc();
         batch.set(docRef, dataMap);
       }
+      batch.set(koleksiRef.doc('atribut'), _atribut);
       await batch.commit();
 
       print('✅ Selesai! Semua data berhasil diunggah dengan batch.');
@@ -333,14 +620,29 @@ class _ManualInputPageState extends State<ManualInputPage> {
       return;
     }
 
+    if (!context.mounted) return;
+    _showLoadingDialog(context);
+
     try {
-      final String idlink = generateRandomString(10);
+      String idlink;
+      bool idExists;
+
+      do {
+        idlink = generateRandomString(10);
+        final docSnapshot = await FirebaseFirestore.instance
+            .collection('data-umum/list_data/data_$idlink/')
+            .limit(1)
+            .get();
+        idExists = docSnapshot.docs.isNotEmpty;
+        print('NEW ID Generated');
+      } while (idExists);
       final String link =
           await uploadDataBatch('data_$idlink', _rowData) as String;
       FirebaseFirestore.instance.collection('/data-umum/title/list_title').add({
         'judul': _titleController.text,
         'link': link,
       });
+      if (context.mounted) Navigator.of(context).pop();
 
       if (context.mounted) {
         _showStatusDialog(
@@ -356,6 +658,7 @@ class _ManualInputPageState extends State<ManualInputPage> {
       Navigator.of(context).pop(true);
     } catch (e) {
       print(e);
+      if (context.mounted) Navigator.of(context).pop();
 
       if (!context.mounted) return;
       _showStatusDialog(
@@ -383,31 +686,154 @@ class _ManualInputPageState extends State<ManualInputPage> {
     // print(finalResult);
   }
 
+  void _showLoadingDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      // Mencegah dialog ditutup saat user mengetuk area di luar dialog
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Dialog(
+          child: Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 20),
+                Text("Menyimpan data..."),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<bool?> _showExitConfirmationDialog(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Keluar Halaman?'),
+        content: const Text(
+          'Data yang belum disimpan akan hilang. Anda yakin ingin keluar?',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () {
+              _deleteDraft();
+              return Navigator.of(context).pop(true);
+            },
+            child: const Text('Keluar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Keluar dan Simpan Draft'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _isDraftAvailable() {
+    return _titleController.text.isNotEmpty ||
+        _columns.isNotEmpty ||
+        _rowData.isNotEmpty;
+  }
+
+  Future<void> _handleExitAttempt() async {
+    if (!_isDraftAvailable()) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final shouldPop = await _showExitConfirmationDialog(context);
+    if (shouldPop == true) {
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: () {
-            if (_currentStep == 1) {
-              Navigator.of(context).pop();
-            } else {
-              setState(() {
-                _currentStep = 1;
-              });
-            }
-          },
+    return PopScope(
+      canPop: false,
+      // 3. Logika saat user menekan tombol kembali bawaan HP
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (didPop) return;
+        _handleExitAttempt();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back),
+            onPressed: () async {
+              if (_currentStep == 1) {
+                final isClose = await _showExitConfirmationDialog(context);
+                if (isClose == true) {
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                  }
+                }
+              } else {
+                setState(() {
+                  _currentStep = 1;
+                });
+              }
+            },
+          ),
+          title: Text(
+            _currentStep == 1
+                ? 'Tentukan Nama Judul & Kolom'
+                : 'Tambahkan Data',
+          ),
         ),
-        title: Text(
-          _currentStep == 1 ? 'Tentukan Nama Judul & Kolom' : 'Tambahkan Data',
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: _currentStep == 1
+              ? _buildColumnDefinitionStep()
+              : _buildDataInputStep(),
         ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: _currentStep == 1
-            ? _buildColumnDefinitionStep()
-            : _buildDataInputStep(),
+        persistentFooterButtons: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: _currentStep == 1
+                ? FilledButton(
+                    onPressed: _confirmColumns,
+                    child: const SizedBox(
+                      width: double.infinity,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle_outline),
+                          SizedBox(width: 8.0),
+                          Text('Konfirmasi & Lanjutkan Input'),
+                        ],
+                      ),
+                    ),
+                  )
+                : FilledButton(
+                    onPressed: () {
+                      _finishAndSave(context: context);
+                    },
+                    child: const SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.save_as_outlined),
+                          SizedBox(width: 8.0),
+                          Text('Selesai & Simpan'),
+                        ],
+                      ),
+                    ),
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -428,35 +854,60 @@ class _ManualInputPageState extends State<ManualInputPage> {
         ),
         const SizedBox(height: 20),
         const Text(
+          'Kategori Data',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        DropdownButton<String>(
+          hint: const Text('Pilih Kategori Data'),
+          value: _kategoriData,
+          isExpanded: true,
+          items: _items.map((String item) {
+            return DropdownMenuItem<String>(value: item, child: Text(item));
+          }).toList(),
+          onChanged: (String? newValue) {
+            setState(() {
+              _kategoriData = newValue;
+              if (newValue != null) {
+                _atribut['category'] = _items.indexOf(newValue);
+              }
+            });
+          },
+        ),
+        const SizedBox(height: 20),
+        const Text(
           'Kolom yang Akan Dibuat:',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         _columns.isEmpty
             ? const Text('Belum ada kolom. Klik (+) untuk menambahkan.')
-            : ListView.builder(
-                shrinkWrap: true,
-                itemCount: _columns.length,
-                itemBuilder: (context, index) {
-                  final col = _columns[index];
-                  return Card(
-                    child: ListTile(
-                      title: Text(col.name),
-                      subtitle: Text('Tipe: ${col.type.name}'),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () {
-                          setState(() {
-                            for (var dt in _rowData) {
-                              dt.remove(_columns[index].name);
-                            }
-                            _columns.removeAt(index);
-                          });
-                        },
+            // Bungkus dengan SizedBox untuk memberikan frame dengan tinggi tetap
+            : SizedBox(
+                height: 300,
+                child: ListView.builder(
+                  // Hapus shrinkWrap: true agar ListView bisa di-scroll
+                  itemCount: _columns.length - 1,
+                  itemBuilder: (context, index) {
+                    final col = _columns[index + 1];
+                    return Card(
+                      child: ListTile(
+                        title: Text(col.name),
+                        subtitle: Text('Tipe: ${col.type.name}'),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () {
+                            setState(() {
+                              for (var dt in _rowData) {
+                                dt.remove(_columns[index].name);
+                              }
+                              _columns.removeAt(index);
+                            });
+                          },
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
         const SizedBox(height: 24),
         ElevatedButton.icon(
@@ -464,11 +915,7 @@ class _ManualInputPageState extends State<ManualInputPage> {
           label: const Text('Tambah Kolom'),
           onPressed: _showAddColumnDialog,
         ),
-        const SizedBox(height: 8),
-        FilledButton(
-          onPressed: _confirmColumns,
-          child: const Text('Konfirmasi & Lanjutkan Input'),
-        ),
+        const SizedBox(height: 30),
       ],
     );
   }
@@ -476,15 +923,26 @@ class _ManualInputPageState extends State<ManualInputPage> {
   void _delData({required int idx}) {
     setState(() {
       _rowData.removeAt(idx);
+      for (int i = 0; i < _rowData.length; i++) {
+        _rowData[i]['id_row'] = i + 1;
+      }
     });
   }
 
   void _editData({required int idx}) {
     setState(() {
       for (var col in _columns) {
-        if (col.type == DataType.string || col.type == DataType.number) {
-          _controllers[col.name]!.text = _rowData[idx][col.name];
-        } else if (col.type == DataType.timestamp) {
+        if (col.name == 'id_row') {
+          continue;
+        }
+        if (col.type == DataType.string ||
+            col.type == DataType.integer ||
+            col.type == DataType.float ||
+            col.type == DataType.money ||
+            col.type == DataType.year) {
+          _controllers[col.name]!.text =
+              _rowData[idx][col.name]?.toString() ?? '';
+        } else {
           _dateValues[col.name] = _rowData[idx][col.name];
         }
       }
@@ -503,15 +961,16 @@ class _ManualInputPageState extends State<ManualInputPage> {
             _titleController.text,
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          ..._columns.map((col) => _buildDynamicInputField(col)),
+          ..._columns.sublist(1).map((col) {
+            print(col);
+            return _buildDynamicInputField(col);
+          }),
           const SizedBox(height: 24),
           ElevatedButton.icon(
             icon: editing
                 ? const Icon(Icons.thumb_up_alt_outlined)
                 : const Icon(Icons.add),
-            label: editing
-                ? const Text('OKE')
-                : const Text('Tambah ke Tabel Preview'),
+            label: editing ? const Text('OKE') : const Text('Tambah ke Tabel'),
             onPressed: () {
               if (editing) {
                 _addRowToPreview(isEdit: editing, idx: idxEdited);
@@ -526,73 +985,14 @@ class _ManualInputPageState extends State<ManualInputPage> {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          // Tabel Preview
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                // --- BAGIAN KOLOM ---
-                columns: [
-                  // 1. Tampilkan semua kolom data yang sudah ada
-                  ..._columns.map((c) => DataColumn(label: Text(c.name))),
-                  // 2. Tambahkan satu kolom baru untuk 'Aksi' di akhir
-                  const DataColumn(label: Text('')),
-                ],
-                // --- BAGIAN BARIS ---
-                rows: _rowData.asMap().entries.map((rowEntry) {
-                  int rowIndex =
-                      rowEntry.key; // Ini indeks baris (0, 1, 2, ...)
-                  var row = rowEntry.value;
-                  return DataRow(
-                    cells: [
-                      // 3. Tampilkan semua sel data yang sudah ada
-                      ..._columns.map((col) {
-                        final value = row[col.name];
-                        String displayValue = '';
-                        if (value is DateTime) {
-                          displayValue = DateFormat('dd/MM/yyyy').format(value);
-                        } else {
-                          displayValue =
-                              value?.toString() ?? ''; // Tambahkan null check
-                        }
-                        return DataCell(Text(displayValue));
-                      }),
-                      // 4. Tambahkan satu sel baru untuk tombol di akhir
-                      DataCell(
-                        Row(
-                          mainAxisSize: MainAxisSize
-                              .min, // Agar row tidak makan banyak tempat
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
-                              tooltip: 'Edit',
-                              onPressed: () {
-                                _editData(idx: rowIndex);
-                              },
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              tooltip: 'Hapus',
-                              onPressed: () {
-                                _delData(idx: rowIndex);
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-          const SizedBox(height: 32),
-          FilledButton(
-            onPressed: () {
-              _finishAndSave(context: context);
+          DesignedTableData(
+            atribute: _atribut,
+            data: _rowData,
+            isPreviewMode: true,
+            functionList: {
+              'edit': ({required int idx}) => _editData(idx: idx),
+              'delete': ({required int idx}) => _delData(idx: idx),
             },
-            child: const Text('Selesai & Simpan'),
           ),
         ],
       ),

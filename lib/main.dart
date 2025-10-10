@@ -3,7 +3,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'loading_screen.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'notification_service.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:month_year_picker/month_year_picker.dart';
+import 'atoms/notification_service.dart';
 
 void main() async {
   // 1. Ensure that the Flutter bindings are initialized
@@ -23,6 +25,15 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       theme: ThemeData(primarySwatch: Colors.blue),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        MonthYearPickerLocalizations.delegate, // Delegate untuk package
+      ],
+      supportedLocales: const [
+        Locale('en'), // Bahasa Inggris
+        Locale('id'), // Bahasa Indonesia
+      ],
       home: const LoadingScreen(),
     );
   }
