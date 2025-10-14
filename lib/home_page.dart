@@ -8,7 +8,7 @@ import 'update_homepage.dart';
 import 'update_infografis.dart';
 import 'update_publikasi.dart';
 import 'update_data.dart';
-import 'test_table.dart';
+
 import 'atoms/notification_service.dart';
 
 // import 'excel_to_db.dart';
@@ -330,16 +330,6 @@ class DashboardAdmin extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (context) => const UpdatePublikasi(),
                       ),
-                    );
-                  },
-                ),
-                _MenuButton(
-                  icon: Icons.book_online,
-                  label: 'EKSPLORATION',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => TestTablePage()),
                     );
                   },
                 ),

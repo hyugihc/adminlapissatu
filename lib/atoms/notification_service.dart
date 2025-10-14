@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class NotificationService {
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
@@ -18,16 +20,60 @@ class NotificationService {
 
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
       print('User granted permission');
-      getToken();
+      getTokenAndSaveToFirestore();
       setupMessageListeners();
     } else {
       print('User declined or has not accepted permission');
     }
   }
 
-  Future<void> getToken() async {
-    final String? token = await _firebaseMessaging.getToken();
-    print("FCM Token: $token");
+  Future<void> getTokenAndSaveToFirestore() async {
+    try {
+      // 1. Dapatkan token FCM dari perangkat
+      final String? token = await _firebaseMessaging.getToken();
+
+      if (token == null) {
+        print("Gagal mendapatkan FCM token.");
+        return;
+      }
+
+      print("FCM Token: $token");
+
+      // 2. Tentukan referensi ke koleksi Firestore
+      //    Ganti 'fcm_tokens' jika Anda ingin nama koleksi yang berbeda
+      final CollectionReference tokensCollection = FirebaseFirestore.instance
+          .collection('/acc-admin/creddentials_notification/fcms_list');
+
+      // 3. Lakukan query untuk memeriksa apakah token sudah ada
+      final QuerySnapshot querySnapshot = await tokensCollection
+          .where('token', isEqualTo: token)
+          .limit(1) // Optimasi: Cukup temukan satu saja
+          .get();
+
+      // 4. Jika query tidak mengembalikan dokumen, berarti token belum ada
+      if (querySnapshot.docs.isEmpty) {
+        print("Token belum ada di Firestore. Menambahkan...");
+        final FirebaseAuth auth = FirebaseAuth.instance;
+        final User? user = auth.currentUser;
+        String email = '';
+        if (user != null) {
+          email = user.email as String;
+        }
+
+        // 5. Tambahkan token baru beserta server timestamp
+        await tokensCollection.add({
+          'email': email,
+          'token': token,
+          'time_add': FieldValue.serverTimestamp(),
+        });
+
+        print("Token berhasil ditambahkan ke Firestore.");
+      } else {
+        print("Token sudah ada di Firestore.");
+      }
+    } catch (e) {
+      print("Terjadi error saat menyimpan token: $e");
+    }
   }
 
   void setupMessageListeners() {

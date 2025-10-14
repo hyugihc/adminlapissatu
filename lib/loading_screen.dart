@@ -1,6 +1,7 @@
 import 'dart:async';
+import 'package:admin_lapissatu/atoms/authentication_service.dart';
 import 'package:flutter/material.dart';
-import 'home_page.dart';
+// import 'home_page.dart';
 
 class LoadingScreen extends StatefulWidget {
   const LoadingScreen({super.key});
@@ -16,7 +17,7 @@ class _LoadingScreenState extends State<LoadingScreen> {
     Timer(const Duration(seconds: 1), () {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
+        MaterialPageRoute(builder: (context) => AuthWrapper()),
       );
     });
   }

@@ -641,6 +641,7 @@ class _ManualInputPageState extends State<ManualInputPage> {
       FirebaseFirestore.instance.collection('/data-umum/title/list_title').add({
         'judul': _titleController.text,
         'link': link,
+        'category': _atribut['category'],
       });
       if (context.mounted) Navigator.of(context).pop();
 
@@ -652,6 +653,7 @@ class _ManualInputPageState extends State<ManualInputPage> {
           message: 'Berhasil Disimpan!',
         );
       }
+      _deleteDraft();
       await Future.delayed(const Duration(seconds: 2));
       if (!context.mounted) return;
 

@@ -5,14 +5,12 @@ import 'loading_screen.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:month_year_picker/month_year_picker.dart';
-import 'atoms/notification_service.dart';
 
 void main() async {
   // 1. Ensure that the Flutter bindings are initialized
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await initializeDateFormatting('id_ID', null);
-  await NotificationService().initNotifications();
 
   // 3. Run the app ONCE after initialization is complete
   runApp(const MyApp());
