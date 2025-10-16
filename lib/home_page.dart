@@ -8,6 +8,7 @@ import 'update_homepage.dart';
 import 'update_infografis.dart';
 import 'update_publikasi.dart';
 import 'update_data.dart';
+import 'review_user.dart';
 
 import 'atoms/notification_service.dart';
 
@@ -329,6 +330,18 @@ class DashboardAdmin extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) => const UpdatePublikasi(),
+                      ),
+                    );
+                  },
+                ),
+                _MenuButton(
+                  icon: Icons.star_rate_outlined,
+                  label: 'Review Pengguna',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ReviewUser(),
                       ),
                     );
                   },
