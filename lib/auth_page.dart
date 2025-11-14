@@ -72,10 +72,7 @@ class _LoginPageState extends State<LoginPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset(
-                'lib/assets/logo bps.png', // Pastikan path ini benar
-                width: 120, // Sesuaikan ukuran
-              ),
+              Image.asset('lib/assets/logo bps.png', width: 120),
               const SizedBox(height: 16),
               const Text(
                 "LAPIS SATU",
@@ -91,8 +88,7 @@ class _LoginPageState extends State<LoginPage> {
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 14, color: Colors.white70),
               ),
-              const SizedBox(height: 48), // Jarak antara judul dan form
-              // --- Form Login ---
+              const SizedBox(height: 48),
               Card(
                 elevation: 8,
                 shape: RoundedRectangleBorder(
@@ -101,10 +97,9 @@ class _LoginPageState extends State<LoginPage> {
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),
                   child: Form(
-                    key: _formKey, // Pasang GlobalKey ke Form
+                    key: _formKey,
                     child: Column(
-                      mainAxisSize:
-                          MainAxisSize.min, // Agar Card tidak melebar penuh
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         TextFormField(
                           controller: _emailController,
@@ -142,7 +137,6 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             filled: true,
                             fillColor: Colors.grey[50],
-                            // 2. Tambahkan IconButton sebagai suffixIcon
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _isPasswordVisible
@@ -192,16 +186,6 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                         const SizedBox(height: 15),
-                        TextButton(
-                          onPressed: () {
-                            // TODO: Implementasi logika lupa password
-                            print('Lupa Password ditekan');
-                          },
-                          child: Text(
-                            'Lupa Password?',
-                            style: TextStyle(color: Colors.grey[600]),
-                          ),
-                        ),
                       ],
                     ),
                   ),

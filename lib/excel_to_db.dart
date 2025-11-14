@@ -1,313 +1,204 @@
+import 'dart:typed_data';
+import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:excel/excel.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:io';
 
-// Enum untuk mengelola status UI dengan lebih rapi
-enum UploadState { idle, preview, uploading, success, error }
+import 'package:admin_lapissatu/atoms/snackbar_info.dart';
+import 'package:admin_lapissatu/atoms/enum_var.dart';
+import 'package:admin_lapissatu/input_manual_page.dart';
 
-class ExcelUploaderWidget extends StatefulWidget {
-  const ExcelUploaderWidget({super.key});
+class ExcelToDB {
+  final BuildContext context;
+  ExcelToDB({required this.context});
 
-  @override
-  State<ExcelUploaderWidget> createState() => _ExcelUploaderWidgetState();
-}
+  Uint8List? _pickedFile;
+  final Map<String, dynamic> _atribut = {};
+  final List<Map<String, dynamic>> _dataRow = [];
+  final List<String> _column = ['id_row'];
+  final Map<String, Map<DataType, int>> _typeList = {};
 
-class _ExcelUploaderWidgetState extends State<ExcelUploaderWidget> {
-  UploadState _state = UploadState.idle;
-  String _statusMessage = 'Silakan pilih file Excel untuk diunggah.';
-  int _processedRows = 0;
-  int _totalRows = 0;
+  Future<bool?> pickAndProcessFile() async {
+    await _pickFile();
 
-  // Variabel untuk menyimpan data sementara saat pratinjau
-  List<String>? _previewHeaders;
-  Map<String, dynamic>? _previewDataRow;
-  List<Map<String, dynamic>>? _fullDataToUpload;
-
-  void _resetState() {
-    setState(() {
-      _state = UploadState.idle;
-      _statusMessage = 'Silakan pilih file Excel untuk diunggah.';
-      _previewHeaders = null;
-      _previewDataRow = null;
-      _fullDataToUpload = null;
-    });
+    if (_pickedFile != null) {
+      final bool? signRead = await _readExcelFile(fileBytes: _pickedFile!);
+      return signRead;
+    }
+    return false;
   }
 
-  Future<void> _pickAndPreviewFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
+  Future<void> _pickFile() async {
+    FilePickerResult? file = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['xlsx'],
+      withData: true,
     );
 
-    if (result == null) return;
-
-    setState(() {
-      _state = UploadState.uploading;
-      _statusMessage = 'Membaca dan memvalidasi file...';
-    });
-
-    try {
-      final String? filePath = result.files.first.path;
-
-      if (filePath == null) {
-        setState(() {
-          _state = UploadState.error;
-          _statusMessage = 'Gagal mendapatkan lokasi file. Coba lagi.';
-        });
-        return;
+    if (file != null && file.files.single.bytes != null) {
+      _pickedFile = file.files.single.bytes;
+      return;
+    } else {
+      if (context.mounted) {
+        SnackbarHelper.show(
+          context,
+          message: 'Tidak ada File yang di Pilih',
+          type: SnackbarType.error,
+        );
       }
+      return;
+    }
+  }
 
-      final file = File(filePath);
-      final fileBytes = await file.readAsBytes();
+  void _addListType({required DataType type, required String columnName}) {
+    if (_typeList[columnName] == null) {
+      _typeList[columnName] = {type: 1};
+    } else {
+      _typeList[columnName]!.update(
+        type,
+        (value) => value + 1,
+        ifAbsent: () => 1,
+      );
+    }
+  }
 
-      var excel = Excel.decodeBytes(fileBytes);
-      var sheet = excel.tables[excel.tables.keys.first]!;
+  Future<bool?> _readExcelFile({required Uint8List fileBytes}) async {
+    var excel = Excel.decodeBytes(fileBytes);
 
-      // Validasi: Pastikan ada header dan setidaknya satu baris data
-      if (sheet.maxRows < 2) {
-        setState(() {
-          _state = UploadState.error;
-          _statusMessage =
-              'Error: File Excel harus memiliki header dan setidaknya satu baris data.';
-        });
-        return;
-      }
+    String sheetName = excel.tables.keys.first;
+    var table = excel.tables[sheetName];
 
-      // --- KODE YANG HILANG SEBELUMNYA ADA DI SINI ---
+    if (table == null) {
+      SnackbarHelper.show(
+        context,
+        message: 'Sheet Tidak Ditemukan',
+        type: SnackbarType.error,
+      );
+      return null;
+    }
 
-      // 1. Ambil header (baris pertama)
-      List<String> headers = sheet.rows.first
-          .map((cell) => cell?.value?.toString().trim() ?? '')
-          .toList();
-
-      // 2. Ambil data baris pertama untuk pratinjau
-      Map<String, dynamic> firstDataRow = {};
-      var firstRowValues = sheet.rows[1]; // Baris data pertama ada di indeks 1
-      for (int j = 0; j < headers.length; j++) {
-        if (headers[j].isNotEmpty) {
-          firstDataRow[headers[j]] = firstRowValues.length > j
-              ? firstRowValues[j]?.value
-              : null;
-        }
-      }
-
-      // 3. Siapkan semua data untuk diunggah nanti jika dikonfirmasi
-      List<Map<String, dynamic>> allData = [];
-      for (int i = 1; i < sheet.maxRows; i++) {
-        var row = sheet.rows[i];
-        Map<String, dynamic> rowData = {};
-        for (int j = 0; j < headers.length; j++) {
-          if (headers[j].isNotEmpty) {
-            rowData[headers[j]] = row.length > j ? row[j]?.value : null;
+    bool isDefineColumn = true;
+    for (var row in table.rows) {
+      if (isDefineColumn) {
+        for (var col in row) {
+          if (col != null) {
+            if (col.value == null) {
+              String colname = 'Unnamed_${col.columnIndex}';
+              _column.add(colname);
+              _typeList[colname] = {};
+            } else {
+              String colname = col.value.toString();
+              _column.add(colname);
+              _typeList[colname] = {};
+            }
           }
         }
-        allData.add(rowData);
+        isDefineColumn = false;
+        continue;
       }
 
-      // 4. Update UI ke mode pratinjau setelah semua data siap
-      setState(() {
-        _state = UploadState.preview;
-        _previewHeaders = headers.where((h) => h.isNotEmpty).toList();
-        _previewDataRow = firstDataRow;
-        _fullDataToUpload = allData;
-        _totalRows = allData.length;
-        _statusMessage = 'Silakan periksa pratinjau data sebelum mengunggah.';
-      });
-      // --- AKHIR DARI BAGIAN YANG DILENGKAPI ---
-    } catch (e) {
-      setState(() {
-        _state = UploadState.error;
-        _statusMessage = 'Gagal memproses file: $e';
-      });
-    }
-  }
+      Map<String, dynamic> tempDataRow = {};
 
-  Future<void> _confirmAndUpload() async {
-    if (_fullDataToUpload == null || _fullDataToUpload!.isEmpty) return;
+      for (var cell in row) {
+        if (cell == null) {
+          continue;
+        }
+        final columnData = _column[cell.columnIndex + 1];
+        final value = cell.value;
+        final numFormat = cell.cellStyle?.numberFormat ?? NumFormat.standard_0;
 
-    setState(() {
-      _state = UploadState.uploading;
-      _processedRows = 0;
-      _statusMessage = 'Mengunggah data ke Firestore...';
-    });
-
-    try {
-      // 3. LOAD - Mengirim data setelah konfirmasi
-      await _uploadDataInBatches(_fullDataToUpload!);
-      setState(() {
-        _state = UploadState.success;
-        _statusMessage = 'Sukses! $_totalRows baris data berhasil diimpor.';
-      });
-    } catch (e) {
-      setState(() {
-        _state = UploadState.error;
-        _statusMessage = 'Gagal mengunggah data: $e';
-      });
-    }
-  }
-
-  Future<void> _uploadDataInBatches(List<Map<String, dynamic>> data) async {
-    final firestore = FirebaseFirestore.instance;
-    final collection = firestore.collection(
-      'produk_excel',
-    ); // Ganti nama koleksi
-    const batchSize = 499;
-    var batch = firestore.batch();
-
-    for (int i = 0; i < data.length; i++) {
-      batch.set(collection.doc(), data[i]);
-      if ((i + 1) % batchSize == 0 || i == data.length - 1) {
-        await batch.commit();
-        if (i != data.length - 1) batch = firestore.batch();
+        switch (value) {
+          case null:
+            tempDataRow[columnData] = value;
+          case TextCellValue():
+            tempDataRow[columnData] = value.toString();
+            _addListType(type: DataType.string, columnName: columnData);
+          case FormulaCellValue():
+          case IntCellValue():
+            tempDataRow[columnData] = int.tryParse(value.toString());
+            if (numFormat is CustomNumericNumFormat &&
+                numFormat.toString().contains('Rp-4Z1')) {
+              // 421?
+              _addListType(type: DataType.money, columnName: columnData);
+            } else {
+              _addListType(type: DataType.integer, columnName: columnData);
+            }
+          case BoolCellValue():
+            tempDataRow[columnData] = value.value ? 1 : 0;
+            _addListType(type: DataType.integer, columnName: columnData);
+          case DoubleCellValue():
+            tempDataRow[columnData] = double.tryParse(value.toString());
+            if (numFormat is CustomNumericNumFormat &&
+                numFormat.toString().contains('Rp-421')) {
+              _addListType(type: DataType.money, columnName: columnData);
+            } else {
+              _addListType(type: DataType.float, columnName: columnData);
+            }
+          case DateCellValue():
+            tempDataRow[columnData] = DateTime.tryParse(
+              value.toString(),
+            ); // Hapus 'as DateTime'
+            if (numFormat.toString().contains('"mmm-yy"') ||
+                numFormat.toString().contains('"mm-yyyy"')) {
+              _addListType(type: DataType.month, columnName: columnData);
+            } else if (numFormat.toString().contains('"yyyy"') ||
+                numFormat.toString().contains('"yy"')) {
+              _addListType(type: DataType.year, columnName: columnData);
+              tempDataRow[columnData] =
+                  (tempDataRow[columnData] as DateTime?)?.year;
+            } else {
+              _addListType(type: DataType.date, columnName: columnData);
+            }
+          case TimeCellValue():
+            tempDataRow[columnData] = DateTime.tryParse(
+              value.toString(),
+            ); // Hapus 'as DateTime'
+            _addListType(type: DataType.datetime, columnName: columnData);
+          case DateTimeCellValue():
+            tempDataRow[columnData] = DateTime.tryParse(
+              value.toString(),
+            ); // Hapus 'as DateTime'
+            _addListType(type: DataType.datetime, columnName: columnData);
+        }
       }
-      // Update UI secara berkala agar tidak terasa macet
-      if (i % 20 == 0) {
-        // Update setiap 20 baris
-        setState(() {
-          _processedRows = i + 1;
-          _statusMessage =
-              'Memproses baris $_processedRows dari $_totalRows...';
-        });
-      }
+      _dataRow.add(tempDataRow);
     }
-    setState(() => _processedRows = data.length);
-  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Excel Uploader')),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Tampilan Awal dan Tombol Pilih File
-              if (_state == UploadState.idle ||
-                  _state == UploadState.success ||
-                  _state == UploadState.error)
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text('Pilih File Excel'),
-                  onPressed: _pickAndPreviewFile,
-                ),
+    final List<Map<String, int>> colAtribute = [];
+    for (String key in _typeList.keys) {
+      String colName = key;
+      int maxVote = 0;
+      DataType majorType = DataType.string;
 
-              const SizedBox(height: 20),
+      var keys = _typeList[colName]!.keys;
+      if (keys.length == 2 &&
+          keys.contains(DataType.integer) &&
+          keys.contains(DataType.float)) {
+        majorType = DataType.float;
+        // Hapus 'continue' agar 'colAtribute.add' tetap berjalan
+      } else {
+        for (var ent in _typeList[colName]!.entries) {
+          if (ent.value > maxVote) {
+            maxVote = ent.value;
+            majorType = ent.key;
+          }
+        }
+      }
 
-              // Tampilan Status/Loading
-              if (_state == UploadState.uploading)
-                Column(
-                  children: [
-                    const CircularProgressIndicator(),
-                    const SizedBox(height: 16),
-                    Text(_statusMessage, textAlign: TextAlign.center),
-                    if (_totalRows > 0) Text('$_processedRows / $_totalRows'),
-                  ],
-                ),
+      colAtribute.add({colName: DataType.values.indexOf(majorType)});
+    }
 
-              // Tampilan Pratinjau dan Konfirmasi
-              if (_state == UploadState.preview && _previewHeaders != null)
-                _buildPreviewWidget(),
+    _atribut['column'] = colAtribute;
 
-              // Pesan Status Akhir
-              if (_state != UploadState.preview &&
-                  _state != UploadState.uploading)
-                Text(_statusMessage, textAlign: TextAlign.center),
-            ],
-          ),
+    if (context.mounted) {
+      final bool? sign = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              ManualInputPage(dataIn: {'atribut': _atribut, 'data': _dataRow}),
         ),
-      ),
-    );
-  }
-
-  // Widget khusus untuk menampilkan pratinjau
-  Widget _buildPreviewWidget() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          _statusMessage,
-          style: Theme.of(context).textTheme.titleMedium,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 16),
-        // Menampilkan Nama Kolom
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Kolom Terdeteksi:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8.0,
-                  runSpacing: 4.0,
-                  children: _previewHeaders!
-                      .map((h) => Chip(label: Text(h)))
-                      .toList(),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        // Menampilkan Pratinjau Data Baris Pertama
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Pratinjau Data (Baris Pertama):',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                DataTable(
-                  columns: _previewHeaders!
-                      .map((h) => DataColumn(label: Text(h)))
-                      .toList(),
-                  rows: [
-                    DataRow(
-                      cells: _previewHeaders!
-                          .map(
-                            (h) => DataCell(
-                              Text(_previewDataRow![h]?.toString() ?? ''),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-        // Tombol Aksi (Konfirmasi atau Batal)
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            ElevatedButton(
-              onPressed: _resetState,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-              child: const Text('Batal'),
-            ),
-            ElevatedButton(
-              onPressed: _confirmAndUpload,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-              child: const Text('Konfirmasi & Upload'),
-            ),
-          ],
-        ),
-      ],
-    );
+      );
+      return sign;
+    }
+    return false;
   }
 }

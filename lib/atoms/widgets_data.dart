@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:admin_lapissatu/atoms/enum_var.dart';
 import 'package:intl/intl.dart';
 import 'package:data_table_2/data_table_2.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'dart:math';
 
 class DesignedTableData extends StatefulWidget {
   final Map<String, dynamic> atribute;
@@ -229,4 +231,191 @@ class _DesignedTableData extends State<DesignedTableData> {
       ),
     );
   }
+}
+
+class DesignedBarChart extends StatefulWidget {
+  final List<Map<String, dynamic>> data;
+  final Map<String, dynamic> atribut;
+  const DesignedBarChart({
+    super.key,
+    required this.data,
+    required this.atribut,
+  });
+
+  @override
+  State<DesignedBarChart> createState() => _DesignedBarChart();
+}
+
+class _DesignedBarChart extends State<DesignedBarChart> {
+  final Map<String, dynamic> _atributeChart = {};
+  late final Map<String, List> _recomColumn;
+
+  @override
+  void initState() {
+    _recomColumn = _findColumnFitName();
+    super.initState();
+  }
+
+  Map<String, List> _findColumnFitName() {
+    List<String> xLabel = [];
+    List<String> yCol = [];
+
+    for (var col in (widget.atribut['column'])) {
+      var tempvar = DataType.values[col.values.first as int];
+      if (col.keys.first == 'id_row') {
+        continue;
+      }
+      if ([
+        DataType.string,
+        DataType.year,
+        DataType.month,
+        DataType.date,
+      ].contains(tempvar)) {
+        xLabel.add(col.keys.first);
+      } else if ([
+        DataType.integer,
+        DataType.float,
+        DataType.money,
+      ].contains(tempvar)) {
+        yCol.add(col.keys.first);
+      }
+    }
+    Map<String, List> xyLabel = {'xlabel': xLabel, 'ylabel': yCol};
+    return xyLabel;
+  }
+
+  BarChartDataBundle transformDataToBarData({
+    required List<Map<String, dynamic>> data,
+    int idkX = 0,
+    int idkY = 0,
+  }) {
+    if (data.isEmpty) {
+      return BarChartDataBundle(barGroups: [], bottomTitles: []);
+    }
+
+    List<BarChartGroupData> barGroups = [];
+    List<String> bottomTitles = [];
+    String xLabel = _recomColumn['xlabel']![idkX];
+    String yLabel = _recomColumn['ylabel']![idkY];
+
+    data.asMap().entries.forEach((entry) {
+      int index = entry.key;
+      final data = entry.value;
+
+      final int xValue = index;
+      final double yValue = (data[yLabel] as num?)?.toDouble() ?? 0.0;
+
+      barGroups.add(
+        BarChartGroupData(
+          x: xValue,
+          showingTooltipIndicators: [0],
+          barRods: [
+            BarChartRodData(
+              toY: yValue,
+              color: Colors.lightBlue,
+              width: 25,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(4),
+                topRight: Radius.circular(4),
+              ),
+            ),
+          ],
+        ),
+      );
+      if (xLabel.isNotEmpty) {
+        final String display;
+        if (data[xLabel] is num) {
+          display = data[xLabel].toInt().toString();
+        } else {
+          display = data[xLabel].toString();
+        }
+        bottomTitles.add(display);
+      } else {
+        bottomTitles.add(index.toString());
+      }
+    });
+    return BarChartDataBundle(barGroups: barGroups, bottomTitles: bottomTitles);
+  }
+
+  void computeChartAtribute() {
+    final BarChartDataBundle chartData;
+    final List<double> yValues;
+    final double minYValue;
+    final double maxYValue;
+    final double paddingY;
+    final double minYChart;
+    final double maxYChart;
+
+    chartData = transformDataToBarData(data: widget.data);
+
+    yValues = chartData.barGroups
+        .map((group) => group.barRods.first.toY)
+        .toList();
+    minYValue = yValues.reduce(min);
+    maxYValue = yValues.reduce(max);
+
+    if (minYValue == maxYValue) {
+      paddingY = minYValue * 0.5;
+    } else {
+      paddingY = (maxYValue - minYValue) * 0.5;
+    }
+
+    if ((minYValue - paddingY).floorToDouble() < 0) {
+      minYChart = 0;
+    } else {
+      minYChart = (minYValue - paddingY).floorToDouble();
+    }
+
+    maxYChart = (maxYValue + paddingY).ceilToDouble();
+
+    _atributeChart['chartData'] = chartData;
+    _atributeChart['minY'] = minYChart;
+    _atributeChart['maxY'] = maxYChart;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    computeChartAtribute();
+    return BarChart(
+      BarChartData(
+        barTouchData: BarTouchData(
+          enabled: true,
+          touchTooltipData: BarTouchTooltipData(
+            getTooltipColor: (group) => Colors.transparent,
+            tooltipPadding: EdgeInsets.zero,
+          ),
+        ),
+        minY: _atributeChart['minY'] as double,
+        maxY: _atributeChart['maxY'] as double,
+        alignment: BarChartAlignment.spaceEvenly,
+        barGroups: _atributeChart['chartData'].barGroups,
+        titlesData: FlTitlesData(
+          show: true,
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 30,
+              getTitlesWidget: (double value, TitleMeta meta) {
+                final String title =
+                    _atributeChart['chartData'].bottomTitles[value.toInt()];
+                return SideTitleWidget(meta: meta, child: Text(title));
+              },
+            ),
+          ),
+          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        borderData: FlBorderData(show: true),
+        gridData: const FlGridData(show: false),
+      ),
+    );
+  }
+}
+
+class BarChartDataBundle {
+  final List<BarChartGroupData> barGroups;
+  final List<String> bottomTitles;
+
+  BarChartDataBundle({required this.barGroups, required this.bottomTitles});
 }

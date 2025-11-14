@@ -1,11 +1,7 @@
 import 'package:admin_lapissatu/atoms/widgets_data.dart';
 import 'package:flutter/material.dart';
-// import 'package:file_picker/file_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:intl/intl.dart';
-// import 'dart:convert' show utf8;
-
-import 'edit_data.dart';
+import 'package:admin_lapissatu/excel_to_db.dart';
 import 'input_manual_page.dart';
 
 enum MenuOption { uploadExcel, inputManual }
@@ -18,7 +14,7 @@ class UpdateData extends StatefulWidget {
 }
 
 class _UpdateDataState extends State<UpdateData> {
-  List<Map<String, String>> _dataList = [];
+  List<Map<String, dynamic>> _dataList = [];
 
   @override
   void initState() {
@@ -34,7 +30,7 @@ class _UpdateDataState extends State<UpdateData> {
     });
   }
 
-  Future<List<Map<String, String>>> _fetchData() async {
+  Future<List<Map<String, dynamic>>> _fetchData() async {
     final snapshot = await FirebaseFirestore.instance
         .collection('/data-umum/title/list_title/')
         .orderBy('judul')
@@ -46,13 +42,15 @@ class _UpdateDataState extends State<UpdateData> {
           'id': doc.id,
           'title': (doc['judul'] as String),
           'link': (doc['link'] as String),
+          'category': doc['category'] as int,
+          'subcategory': doc['subcategory'] as int,
         },
     ];
 
     return fetchedMap;
   }
 
-  void _seeData({required Map<String, String> initialData}) async {
+  void _seeData({required Map<String, dynamic> initialData}) async {
     final isRefresh = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -73,6 +71,19 @@ class _UpdateDataState extends State<UpdateData> {
       context,
       MaterialPageRoute(builder: (context) => ManualInputPage()),
     );
+
+    if (isAdded == null) return;
+    if (isAdded) {
+      final newData = await _fetchData();
+      setState(() {
+        _dataList = newData;
+      });
+    }
+  }
+
+  Future<void> _addExcelInput() async {
+    final excelHelper = ExcelToDB(context: context);
+    bool? isAdded = await excelHelper.pickAndProcessFile();
 
     if (isAdded == null) return;
     if (isAdded) {
@@ -145,7 +156,10 @@ class _UpdateDataState extends State<UpdateData> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.edit, color: Colors.blue),
-                    onPressed: () => _seeData(initialData: data),
+                    onPressed: () {
+                      print(data);
+                      _seeData(initialData: data);
+                    },
                     tooltip: 'Lihat',
                   ),
                 ],
@@ -160,7 +174,7 @@ class _UpdateDataState extends State<UpdateData> {
           // Logika untuk menangani pilihan
           switch (item) {
             case MenuOption.uploadExcel:
-              showUnderDevelopmentDialog(context);
+              _addExcelInput();
               break;
             case MenuOption.inputManual:
               _addManualInput();
@@ -212,7 +226,7 @@ class _UpdateDataState extends State<UpdateData> {
 }
 
 class ShowData extends StatefulWidget {
-  final Map<String, String> initialData;
+  final Map<String, dynamic> initialData;
   const ShowData({super.key, required this.initialData});
 
   @override
@@ -226,11 +240,15 @@ class _ShowData extends State<ShowData> {
   bool isChanged = false;
   Map<String, dynamic> _atribute = {};
   List<Map<String, dynamic>> data = [];
+  late final int _subCatIdx;
+  late final int _catIdx;
 
   @override
   void initState() {
     super.initState();
     linkData = widget.initialData['link']!;
+    _subCatIdx = widget.initialData['subcategory']!;
+    _catIdx = widget.initialData['category']!;
     _kontakFuture = FirebaseFirestore.instance.collection(linkData).get();
   }
 
@@ -429,13 +447,23 @@ class _ShowData extends State<ShowData> {
                       child: Card(
                         child: Padding(
                           padding: EdgeInsets.all(16),
-                          child: Text('KOSONG TEMPEK'),
+                          child: Text('KOSONG'),
                         ),
                       ),
                     )
                   else
                     DesignedTableData(atribute: _atribute, data: data),
                   const SizedBox(height: 16),
+
+                  // Card(
+                  //   elevation: 4,
+                  //   shape: RoundedRectangleBorder(
+                  //     borderRadius: BorderRadius.circular(12),
+                  //   ),
+                  //   // Mencegah konten di dalam Card keluar dari sudut yang melengkung
+                  //   clipBehavior: Clip.antiAlias,
+                  //   child: DesignedTableData(atribute: _atribute, data: data),
+                  // ),
                   Row(
                     children: [
                       // Tombol Edit Data
@@ -447,9 +475,15 @@ class _ShowData extends State<ShowData> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => EditableDataPage(
-                                  initialSnapshot: _cachedSnapshots!,
-                                  collectionPath: linkData,
+                                builder: (context) => ManualInputPage(
+                                  dataIn: {
+                                    'atribut': _atribute,
+                                    'data': data,
+                                    'title': widget.initialData['title'],
+                                    'category': _catIdx,
+                                    'subcategory': _subCatIdx,
+                                    'isEdited': true,
+                                  },
                                 ),
                               ),
                             );
@@ -462,22 +496,7 @@ class _ShowData extends State<ShowData> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10), // Jarak antar tombol
-                      // Tombol Ganti Data
-                      // Expanded(
-                      //   child: ElevatedButton.icon(
-                      //     icon: const Icon(Icons.sync_alt),
-                      //     label: const Text('Ganti Baru'),
-                      //     onPressed: () {},
-                      //     style: ElevatedButton.styleFrom(
-                      //       padding: const EdgeInsets.symmetric(vertical: 12),
-                      //       shape: RoundedRectangleBorder(
-                      //         borderRadius: BorderRadius.circular(10),
-                      //       ),
-                      //     ),
-                      //   ),
-                      // ),
-                      // const SizedBox(width: 10),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton.icon(
                           icon: const Icon(Icons.delete_forever),
@@ -486,10 +505,8 @@ class _ShowData extends State<ShowData> {
                             _showConfirmationDialog();
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                Colors.red[700], // Warna merah untuk aksi hapus
-                            foregroundColor:
-                                Colors.white, // Warna teks dan ikon
+                            backgroundColor: Colors.red[700],
+                            foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),

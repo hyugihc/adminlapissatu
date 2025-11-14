@@ -1,5 +1,5 @@
 // import 'package:excel/excel.dart';
-import 'package:admin_lapissatu/atoms/widgets_data.dart';
+import 'package:admin_lapissatu/atoms/const_var.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -9,7 +9,9 @@ import 'package:month_year_picker/month_year_picker.dart';
 import 'dart:math';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'atoms/enum_var.dart';
+import 'package:admin_lapissatu/atoms/enum_var.dart';
+import 'package:admin_lapissatu/atoms/widgets_data.dart';
+import 'package:admin_lapissatu/atoms/snackbar_info.dart';
 
 class ColumnDefinition {
   final String name;
@@ -19,14 +21,14 @@ class ColumnDefinition {
 }
 
 class ManualInputPage extends StatefulWidget {
-  const ManualInputPage({super.key});
+  final Map<String, dynamic>? dataIn;
+  const ManualInputPage({super.key, this.dataIn});
 
   @override
   State<ManualInputPage> createState() => _ManualInputPageState();
 }
 
 class _ManualInputPageState extends State<ManualInputPage> {
-  // 1. STATE UNTUK MANAJEMEN ALUR
   int _currentStep = 1;
   final List<ColumnDefinition> _columns = [
     ColumnDefinition(name: 'id_row', type: DataType.integer),
@@ -34,26 +36,34 @@ class _ManualInputPageState extends State<ManualInputPage> {
   Map<String, dynamic> _atribut = {};
   List<Map<String, dynamic>> _rowData = [];
 
-  // 2. STATE UNTUK FORM INPUT
   final _formKey = GlobalKey<FormState>();
-  // Menyimpan controller dan nilai untuk form yang dinamis
   late Map<String, TextEditingController> _controllers;
   late Map<String, DateTime?> _dateValues;
   final TextEditingController _titleController = TextEditingController();
   String? _kategoriData;
-  final List<String> _items = Category.values.map((e) => e.name).toList();
+  final List<String> _items = Category.values
+      .map((e) => e.name.toUpperCase())
+      .toList();
   bool editing = false;
   int? idxEdited;
 
   final String _atributKey = 'atribut_data';
   final String _draftKey = 'isi_data_draft';
+  String? _subKategoriData;
+  List<String> _subItems = [];
+  late final Map<Category, List<String>> _subCategoryOptions;
 
   @override
   void initState() {
     super.initState();
     _controllers = {};
     _dateValues = {};
-    _loadDraft();
+    _subCategoryOptions = AppVar.subCategory;
+    if (widget.dataIn == null) {
+      _loadDraft();
+    } else {
+      _loadDataIn();
+    }
   }
 
   @override
@@ -64,15 +74,24 @@ class _ManualInputPageState extends State<ManualInputPage> {
     super.dispose();
   }
 
-  void _showAddColumnDialog() {
+  void _showAddColumnDialog({int? idx}) {
     final nameController = TextEditingController();
-    DataType selectedType = DataType.string;
+    DataType? selectedType;
+    if (idx == null) {
+      selectedType = DataType.string;
+    } else {
+      ColumnDefinition kolom = _columns[idx];
+      selectedType = kolom.type;
+      nameController.text = kolom.name;
+    }
 
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Tambah Kolom Baru'),
+          title: idx == null
+              ? const Text('Tambah Kolom Baru')
+              : const Text('Edit Kolom'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -81,9 +100,19 @@ class _ManualInputPageState extends State<ManualInputPage> {
                 decoration: const InputDecoration(labelText: 'Nama Kolom'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
+                    SnackbarHelper.show(
+                      context,
+                      message: 'Nama kolom tidak boleh kosong',
+                      type: SnackbarType.error,
+                    );
                     return 'Nama kolom tidak boleh kosong';
                   }
-                  if (_columns.any((c) => c.name == value)) {
+                  if (_columns.any((c) => c.name == value) && idx == null) {
+                    SnackbarHelper.show(
+                      context,
+                      message: 'Nama kolom tidak boleh kosong',
+                      type: SnackbarType.error,
+                    );
                     return 'Nama kolom sudah ada';
                   }
                   return null;
@@ -125,18 +154,34 @@ class _ManualInputPageState extends State<ManualInputPage> {
             ),
             ElevatedButton(
               onPressed: () {
-                if (nameController.text.isNotEmpty &&
-                    !_columns.any((c) => c.name == nameController.text)) {
-                  setState(() {
-                    _columns.add(
-                      ColumnDefinition(
+                if (idx == null) {
+                  if (nameController.text.isNotEmpty &&
+                      !_columns.any((c) => c.name == nameController.text)) {
+                    setState(() {
+                      _columns.add(
+                        ColumnDefinition(
+                          name: nameController.text,
+                          type: selectedType!,
+                        ),
+                      );
+                    });
+                  }
+                } else {
+                  if (nameController.text.isNotEmpty &&
+                      !_columns.asMap().entries.any(
+                        (col) =>
+                            col.key != idx &&
+                            col.value.name == nameController.text,
+                      )) {
+                    setState(() {
+                      _columns[idx] = ColumnDefinition(
                         name: nameController.text,
-                        type: selectedType,
-                      ),
-                    );
-                  });
-                  Navigator.pop(context);
+                        type: selectedType!,
+                      );
+                    });
+                  }
                 }
+                Navigator.pop(context);
               },
               child: const Text('Tambah'),
             ),
@@ -526,6 +571,33 @@ class _ManualInputPageState extends State<ManualInputPage> {
     print('_columns: $_columns');
   }
 
+  void _loadDataIn() {
+    _atribut = widget.dataIn!['atribut'];
+    var tempCol = _atribut['column'] as List<dynamic>? ?? [];
+    _columns.clear();
+    for (var col in tempCol) {
+      _columns.add(
+        ColumnDefinition(
+          name: col.keys.first,
+          type: DataType.values[col.values.first],
+        ),
+      );
+    }
+    _rowData = widget.dataIn!['data'];
+    print(_rowData);
+
+    if (widget.dataIn!['isEdited']) {
+      _titleController.text = widget.dataIn!['title'];
+      final Category tempCat = Category.values[widget.dataIn!['category']];
+      _kategoriData = tempCat.name.toUpperCase();
+      print(tempCat);
+      print(widget.dataIn!['subcategory']);
+      _subKategoriData =
+          AppVar.subCategory[tempCat]![widget.dataIn!['subcategory']];
+      _subItems = AppVar.subCategory[tempCat]!;
+    }
+  }
+
   Future<String?> uploadDataBatch(
     String namaKoleksiBaru,
     List<Map<String, dynamic>> dataList,
@@ -620,6 +692,13 @@ class _ManualInputPageState extends State<ManualInputPage> {
       return;
     }
 
+    if (_atribut['category'] == null && _atribut['subcategory'] == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Category dan Subcategory harus diisi')),
+      );
+      return;
+    }
+
     if (!context.mounted) return;
     _showLoadingDialog(context);
 
@@ -642,6 +721,7 @@ class _ManualInputPageState extends State<ManualInputPage> {
         'judul': _titleController.text,
         'link': link,
         'category': _atribut['category'],
+        'subcategory': _atribut['subcategory'],
       });
       if (context.mounted) Navigator.of(context).pop();
 
@@ -869,11 +949,52 @@ class _ManualInputPageState extends State<ManualInputPage> {
           onChanged: (String? newValue) {
             setState(() {
               _kategoriData = newValue;
+              _subKategoriData = null;
+
               if (newValue != null) {
-                _atribut['category'] = _items.indexOf(newValue);
+                final idxCat = _items.indexOf(newValue);
+                _atribut['category'] = idxCat;
+                _subItems = _subCategoryOptions[Category.values[idxCat]] ?? [];
+              } else {
+                _subItems = [];
               }
             });
           },
+        ),
+        const SizedBox(height: 20),
+        const Text(
+          'Subkategori Data',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        DropdownButton<String>(
+          hint: const Text('Pilih Subkategori'),
+          value: _subKategoriData,
+          isExpanded: true,
+          // Tampilkan hint "Pilih Kategori Dulu" jika disabled
+          // Ini adalah trik UI yang bagus
+          disabledHint: Text(
+            _kategoriData == null
+                ? 'Pilih Kategori Data terlebih dahulu'
+                : 'Tidak ada subkategori',
+            style: TextStyle(color: Colors.grey[500]),
+          ),
+
+          onChanged: _kategoriData == null
+              ? null
+              : (String? newValue) {
+                  setState(() {
+                    _subKategoriData = newValue;
+                    if (newValue != null) {
+                      // Asumsi Anda ingin menyimpan indeksnya juga
+                      _atribut['subcategory'] = _subItems.indexOf(newValue);
+                    }
+                  });
+                  print(_atribut);
+                },
+
+          items: _subItems.map((String item) {
+            return DropdownMenuItem<String>(value: item, child: Text(item));
+          }).toList(),
         ),
         const SizedBox(height: 20),
         const Text(
@@ -888,23 +1009,47 @@ class _ManualInputPageState extends State<ManualInputPage> {
                 height: 300,
                 child: ListView.builder(
                   // Hapus shrinkWrap: true agar ListView bisa di-scroll
-                  itemCount: _columns.length - 1,
+                  itemCount: _columns.first.name == 'id_row'
+                      ? _columns.length - 1
+                      : _columns.length,
                   itemBuilder: (context, index) {
-                    final col = _columns[index + 1];
+                    int idx = index;
+                    if (_columns.first.name == 'id_row') {
+                      idx = idx + 1;
+                    }
+                    final col = _columns[idx];
                     return Card(
                       child: ListTile(
                         title: Text(col.name),
                         subtitle: Text('Tipe: ${col.type.name}'),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () {
-                            setState(() {
-                              for (var dt in _rowData) {
-                                dt.remove(_columns[index].name);
-                              }
-                              _columns.removeAt(index);
-                            });
-                          },
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize
+                              .min, // Penting! Agar Row tidak makan tempat
+                          children: [
+                            // --- Tombol Edit ---
+                            IconButton(
+                              icon: const Icon(
+                                Icons.edit,
+                                color: Colors.blueAccent,
+                              ),
+                              onPressed: () {
+                                _showAddColumnDialog(idx: idx);
+                              },
+                            ),
+                            // --- Tombol Hapus ---
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () {
+                                setState(() {
+                                  for (var dt in _rowData) {
+                                    dt.remove(_columns[index].name);
+                                  }
+                                  _columns.removeAt(index);
+                                });
+                                print(_rowData);
+                              },
+                            ),
+                          ],
                         ),
                       ),
                     );
@@ -915,7 +1060,9 @@ class _ManualInputPageState extends State<ManualInputPage> {
         ElevatedButton.icon(
           icon: const Icon(Icons.add),
           label: const Text('Tambah Kolom'),
-          onPressed: _showAddColumnDialog,
+          onPressed: () {
+            _showAddColumnDialog();
+          },
         ),
         const SizedBox(height: 30),
       ],
@@ -963,10 +1110,8 @@ class _ManualInputPageState extends State<ManualInputPage> {
             _titleController.text,
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          ..._columns.sublist(1).map((col) {
-            print(col);
-            return _buildDynamicInputField(col);
-          }),
+          for (var col in _columns)
+            if (col.name != 'id_row') _buildDynamicInputField(col),
           const SizedBox(height: 24),
           ElevatedButton.icon(
             icon: editing

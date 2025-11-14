@@ -14,7 +14,7 @@ class _LoadingScreenState extends State<LoadingScreen> {
   @override
   void initState() {
     super.initState();
-    Timer(const Duration(seconds: 1), () {
+    Timer(const Duration(seconds: 3), () {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => AuthWrapper()),
@@ -30,7 +30,7 @@ class _LoadingScreenState extends State<LoadingScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset('lib/assets/logo bps.png', width: 150),
+            Image.asset('lib/assets/full-icon-LS.png', width: 150),
             const SizedBox(height: 14),
             const Text(
               "LAPIS SATU",
