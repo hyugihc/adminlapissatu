@@ -46,4 +46,31 @@ class AppVar {
       'Kewiraswastaan',
     ],
   };
+
+  static const Map<String, int> monthMap = {
+    // Januari
+    'januari': 1, 'january': 1, 'jan': 1,
+    // Februari
+    'februari': 2, 'february': 2, 'feb': 2,
+    // Maret
+    'maret': 3, 'march': 3, 'mar': 3,
+    // April
+    'april': 4, 'apr': 4,
+    // Mei
+    'mei': 5, 'may': 5,
+    // Juni
+    'juni': 6, 'june': 6, 'jun': 6,
+    // Juli
+    'juli': 7, 'july': 7, 'jul': 7,
+    // Agustus (ID sering menyingkat Agt atau Agu)
+    'agustus': 8, 'august': 8, 'agu': 8, 'agt': 8, 'aug': 8,
+    // September
+    'september': 9, 'sep': 9, 'sept': 9,
+    // Oktober
+    'oktober': 10, 'october': 10, 'okt': 10, 'oct': 10,
+    // November
+    'november': 11, 'nov': 11,
+    // Desember
+    'desember': 12, 'december': 12, 'des': 12, 'dec': 12,
+  };
 }

@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:admin_lapissatu/atoms/const_var.dart';
 import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -25,6 +26,49 @@ class ExcelToDB {
       return signRead;
     }
     return false;
+  }
+
+  bool _isValidYear({required dynamic value}) {
+    if (value == null) return false;
+
+    int? year;
+    if (value is DateTime) {
+      year = value.year;
+    } else if (value is num) {
+      if (value is double && value % 1 != 0) return false;
+      year = value.toInt();
+    } else if (value is String) {
+      year = int.tryParse(value.trim());
+    }
+    if (year != null && year >= 1900 && year <= 2100) {
+      return true;
+    }
+    return false;
+  }
+
+  bool _isValidMonth({required dynamic value}) {
+    if (value == null || value is! String) return false;
+    final String input = value.trim().toLowerCase();
+
+    return AppVar.monthMap.keys.contains(input);
+  }
+
+  DateTime? parseMonthToDate(String input, {int? year}) {
+    final String cleanedInput = input.trim().toLowerCase();
+    final int targetYear = year ?? DateTime.now().year;
+    final int? monthIndex = AppVar.monthMap[cleanedInput];
+
+    if (monthIndex != null) {
+      return DateTime(targetYear, monthIndex, 1);
+    } else {
+      return null;
+    }
+  }
+
+  bool _isValidDouble({required String value}) {
+    String cleaned = value.trim();
+    cleaned = cleaned.replaceFirst(',', '.');
+    return double.tryParse(cleaned) != null;
   }
 
   Future<void> _pickFile() async {
@@ -111,7 +155,17 @@ class ExcelToDB {
             tempDataRow[columnData] = value;
           case TextCellValue():
             tempDataRow[columnData] = value.toString();
-            _addListType(type: DataType.string, columnName: columnData);
+            if (_isValidMonth(value: value.toString())) {
+              tempDataRow[columnData] = parseMonthToDate(value.toString());
+              _addListType(type: DataType.month, columnName: columnData);
+            } else if (_isValidDouble(value: value.toString())) {
+              tempDataRow[columnData] = double.tryParse(
+                value.toString().trim().replaceFirst(',', '.'),
+              );
+              _addListType(type: DataType.float, columnName: columnData);
+            } else {
+              _addListType(type: DataType.string, columnName: columnData);
+            }
           case FormulaCellValue():
           case IntCellValue():
             tempDataRow[columnData] = int.tryParse(value.toString());
@@ -119,6 +173,8 @@ class ExcelToDB {
                 numFormat.toString().contains('Rp-4Z1')) {
               // 421?
               _addListType(type: DataType.money, columnName: columnData);
+            } else if (_isValidYear(value: tempDataRow[columnData])) {
+              _addListType(type: DataType.year, columnName: columnData);
             } else {
               _addListType(type: DataType.integer, columnName: columnData);
             }
@@ -149,14 +205,10 @@ class ExcelToDB {
               _addListType(type: DataType.date, columnName: columnData);
             }
           case TimeCellValue():
-            tempDataRow[columnData] = DateTime.tryParse(
-              value.toString(),
-            ); // Hapus 'as DateTime'
+            tempDataRow[columnData] = DateTime.tryParse(value.toString());
             _addListType(type: DataType.datetime, columnName: columnData);
           case DateTimeCellValue():
-            tempDataRow[columnData] = DateTime.tryParse(
-              value.toString(),
-            ); // Hapus 'as DateTime'
+            tempDataRow[columnData] = DateTime.tryParse(value.toString());
             _addListType(type: DataType.datetime, columnName: columnData);
         }
       }
@@ -174,7 +226,6 @@ class ExcelToDB {
           keys.contains(DataType.integer) &&
           keys.contains(DataType.float)) {
         majorType = DataType.float;
-        // Hapus 'continue' agar 'colAtribute.add' tetap berjalan
       } else {
         for (var ent in _typeList[colName]!.entries) {
           if (ent.value > maxVote) {

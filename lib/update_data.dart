@@ -157,7 +157,7 @@ class _UpdateDataState extends State<UpdateData> {
                   IconButton(
                     icon: const Icon(Icons.edit, color: Colors.blue),
                     onPressed: () {
-                      print(data);
+                      // print(data);
                       _seeData(initialData: data);
                     },
                     tooltip: 'Lihat',
@@ -454,16 +454,11 @@ class _ShowData extends State<ShowData> {
                   else
                     DesignedTableData(atribute: _atribute, data: data),
                   const SizedBox(height: 16),
-
-                  // Card(
-                  //   elevation: 4,
-                  //   shape: RoundedRectangleBorder(
-                  //     borderRadius: BorderRadius.circular(12),
-                  //   ),
-                  //   // Mencegah konten di dalam Card keluar dari sudut yang melengkung
-                  //   clipBehavior: Clip.antiAlias,
-                  //   child: DesignedTableData(atribute: _atribute, data: data),
-                  // ),
+                  switch (_atribute['chart']) {
+                    0 => DesignedBarChart(data: data, atribute: _atribute),
+                    1 => DesignedLineChart(data: data, atribute: _atribute),
+                    _ => const SizedBox(height: 5),
+                  },
                   Row(
                     children: [
                       // Tombol Edit Data
@@ -477,9 +472,11 @@ class _ShowData extends State<ShowData> {
                               MaterialPageRoute(
                                 builder: (context) => ManualInputPage(
                                   dataIn: {
+                                    'id': widget.initialData['id'],
                                     'atribut': _atribute,
                                     'data': data,
                                     'title': widget.initialData['title'],
+                                    'link': widget.initialData['link'],
                                     'category': _catIdx,
                                     'subcategory': _subCatIdx,
                                     'isEdited': true,

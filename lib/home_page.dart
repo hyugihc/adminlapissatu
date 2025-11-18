@@ -1,3 +1,4 @@
+import 'package:admin_lapissatu/test_table.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:rxdart/rxdart.dart';
@@ -340,6 +341,18 @@ class DashboardAdmin extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) => const ReviewUser(),
+                      ),
+                    );
+                  },
+                ),
+                _MenuButton(
+                  icon: Icons.explore_outlined,
+                  label: 'Explore Chart',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const TestChart(),
                       ),
                     );
                   },

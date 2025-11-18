@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:month_year_picker/month_year_picker.dart';
+import 'package:collection/collection.dart';
 
 import 'dart:math';
 import 'dart:convert';
@@ -52,6 +53,21 @@ class _ManualInputPageState extends State<ManualInputPage> {
   String? _subKategoriData;
   List<String> _subItems = [];
   late final Map<Category, List<String>> _subCategoryOptions;
+
+  late final List<Map<String, dynamic>>? _oriRowData;
+  late final Map<String, dynamic>? _oriAtribut;
+  late final String? _oriCategory;
+  late final String? _oriSubCategory;
+  late final String? _oriTitle;
+  String? _linkCollection;
+  String? _metaId;
+
+  String _selectedChartType = 'Bar Chart';
+  final List<String> _chartTypeOptions = [
+    'Bar Chart',
+    'Line Chart',
+    'Tidak Perlu Ditampilkan',
+  ];
 
   @override
   void initState() {
@@ -228,6 +244,15 @@ class _ManualInputPageState extends State<ManualInputPage> {
       editing = false;
       idxEdited = null;
     });
+  }
+
+  void _confirmData() {
+    if (_rowData.isNotEmpty && _atribut.isNotEmpty) {
+      setState(() {
+        _currentStep = 3;
+        _atribut['chart'] = 0;
+      });
+    }
   }
 
   Widget _buildDynamicInputField(ColumnDefinition column) {
@@ -584,17 +609,58 @@ class _ManualInputPageState extends State<ManualInputPage> {
       );
     }
     _rowData = widget.dataIn!['data'];
-    print(_rowData);
+    // print(_rowData);
 
-    if (widget.dataIn!['isEdited']) {
+    if (widget.dataIn!['isEdited'] != null) {
       _titleController.text = widget.dataIn!['title'];
+      _oriTitle = _titleController.text;
       final Category tempCat = Category.values[widget.dataIn!['category']];
       _kategoriData = tempCat.name.toUpperCase();
-      print(tempCat);
-      print(widget.dataIn!['subcategory']);
+      _oriCategory = _kategoriData!;
+      // print(tempCat);
+      // print(widget.dataIn!['subcategory']);
       _subKategoriData =
           AppVar.subCategory[tempCat]![widget.dataIn!['subcategory']];
+      _oriSubCategory =
+          AppVar.subCategory[tempCat]![widget.dataIn!['subcategory']];
       _subItems = AppVar.subCategory[tempCat]!;
+      _oriRowData = widget.dataIn!['data'];
+      _oriAtribut = widget.dataIn!['atribut'];
+      _linkCollection = widget.dataIn!['link'];
+      _selectedChartType = _chartTypeOptions[_atribut['chart'] ?? 0];
+    }
+  }
+
+  Future<void> updateDataBatch(
+    String linkCollection, // Nama folder: "data_xxxx"
+    List<Map<String, dynamic>> newDataList,
+  ) async {
+    final String link = linkCollection;
+    final firestore = FirebaseFirestore.instance;
+    final koleksiRef = firestore.collection(link);
+
+    // Mulai Batch
+    WriteBatch batch = firestore.batch();
+
+    try {
+      final oldDataSnapshot = await koleksiRef.get();
+
+      for (var doc in oldDataSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+
+      for (var dataMap in newDataList) {
+        DocumentReference newDocRef = koleksiRef.doc(); // Buat ID baru
+        batch.set(newDocRef, dataMap);
+      }
+
+      batch.set(koleksiRef.doc('atribut'), _atribut);
+      await batch.commit();
+
+      print('✅ Selesai! Data berhasil diperbarui (Wipe & Replace).');
+    } catch (e) {
+      print('❌ Terjadi error saat update batch: $e');
+      throw e; // Lempar error agar ditangkap oleh try-catch di _updateAndSave
     }
   }
 
@@ -678,6 +744,96 @@ class _ManualInputPageState extends State<ManualInputPage> {
     );
   }
 
+  Future<void> _updateAndSave({
+    required BuildContext context,
+    required String existingLink,
+    required String existingTitleId,
+  }) async {
+    if (_rowData.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tidak ada data untuk disimpan.')),
+      );
+      return;
+    }
+    if (_titleController.text.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Judul Harus Diisi')));
+      return;
+    }
+
+    if (_atribut['category'] == null && _atribut['subcategory'] == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Category dan Subcategory harus diisi')),
+      );
+      return;
+    }
+
+    if (!context.mounted) return;
+    _showLoadingDialog(context);
+
+    bool isMetadataChanged =
+        _titleController.text != _oriTitle ||
+        _atribut['category'] != _oriCategory ||
+        _atribut['subcategory'] != _oriSubCategory;
+
+    bool isRowDataChanged = !const DeepCollectionEquality().equals(
+      _rowData,
+      _oriRowData,
+    );
+
+    bool isAtributChanged = !const DeepCollectionEquality().equals(
+      _atribut,
+      _oriAtribut,
+    );
+
+    if (!isMetadataChanged && !isRowDataChanged && !isAtributChanged) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tidak ada perubahan data.')),
+      );
+      return;
+    }
+
+    if (!context.mounted) return;
+    _showLoadingDialog(context);
+
+    try {
+      if (isMetadataChanged) {
+        await FirebaseFirestore.instance
+            .collection('/data-umum/title/list_title')
+            .doc(existingTitleId)
+            .update({
+              'judul': _titleController.text,
+              'category': _atribut['category'],
+              'subcategory': _atribut['subcategory'],
+              'updated_at': FieldValue.serverTimestamp(),
+            });
+        print('✅ Metadata updated');
+      }
+
+      if (isRowDataChanged) {
+        await updateDataBatch(existingLink, _rowData); // Fungsi batch lama Anda
+        print('✅ Row Data updated (Full Batch)');
+      }
+      // C. Update Atribut Saja (Jika Row Data TETAP, tapi setting chart/atribut berubah)
+      else if (isAtributChanged) {
+        // Kita tidak perlu menghapus/tulis ulang ribuan data row. Cukup update 1 dokumen atribut.
+        await FirebaseFirestore.instance
+            .collection('/data-umum/list_data/$existingLink')
+            .doc('atribut')
+            .set(_atribut); // Gunakan set atau update
+        print('✅ Attribute updated only');
+      }
+
+      // --- Selesai ---
+      if (context.mounted) Navigator.of(context).pop(); // Tutup Loading
+
+      // ... Tampilkan Dialog Sukses & Navigasi (sama seperti kode sebelumnya) ...
+    } catch (e) {
+      // ... Handle Error ...
+    }
+  }
+
   Future<void> _finishAndSave({required BuildContext context}) async {
     if (_rowData.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -750,22 +906,6 @@ class _ManualInputPageState extends State<ManualInputPage> {
         message: 'Gagal Terkirim\nSilakan Coba Lagi',
       );
     }
-
-    // Tampilkan hasil di dialog
-    // showDialog(
-    //   context: context,
-    //   builder: (context) => AlertDialog(
-    //     title: const Text('Input Selesai'),
-    //     content: SingleChildScrollView(child: Text(finalResult.toString())),
-    //     actions: [
-    //       TextButton(
-    //         onPressed: () => Navigator.of(context).pop(),
-    //         child: const Text('OK'),
-    //       ),
-    //     ],
-    //   ),
-    // );
-    // print(finalResult);
   }
 
   void _showLoadingDialog(BuildContext context) {
@@ -862,7 +1002,7 @@ class _ManualInputPageState extends State<ManualInputPage> {
                 }
               } else {
                 setState(() {
-                  _currentStep = 1;
+                  _currentStep -= 1;
                 });
               }
             },
@@ -875,45 +1015,73 @@ class _ManualInputPageState extends State<ManualInputPage> {
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
-          child: _currentStep == 1
-              ? _buildColumnDefinitionStep()
-              : _buildDataInputStep(),
+          child: switch (_currentStep) {
+            1 => _buildColumnDefinitionStep(),
+            2 => _buildDataInputStep(),
+            3 => _buildChartSelectionStep(),
+            _ => Text('ERROR'),
+          },
         ),
         persistentFooterButtons: [
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child: _currentStep == 1
-                ? FilledButton(
-                    onPressed: _confirmColumns,
-                    child: const SizedBox(
-                      width: double.infinity,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.check_circle_outline),
-                          SizedBox(width: 8.0),
-                          Text('Konfirmasi & Lanjutkan Input'),
-                        ],
-                      ),
-                    ),
-                  )
-                : FilledButton(
-                    onPressed: () {
-                      _finishAndSave(context: context);
-                    },
-                    child: const SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.save_as_outlined),
-                          SizedBox(width: 8.0),
-                          Text('Selesai & Simpan'),
-                        ],
-                      ),
-                    ),
+            child: switch (_currentStep) {
+              1 => FilledButton(
+                onPressed: _confirmColumns,
+                child: const SizedBox(
+                  width: double.infinity,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.check_circle_outline),
+                      SizedBox(width: 8.0),
+                      Text('Konfirmasi & Lanjutkan Input'),
+                    ],
                   ),
+                ),
+              ),
+              2 => FilledButton(
+                onPressed: _confirmData,
+                child: const SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.bar_chart_outlined),
+                      SizedBox(width: 8.0),
+                      Text('Pilih Tampilan Chart'),
+                    ],
+                  ),
+                ),
+              ),
+              3 => FilledButton(
+                onPressed: () {
+                  if (_linkCollection == null) {
+                    _finishAndSave(context: context);
+                  } else {
+                    _updateAndSave(
+                      context: context,
+                      existingLink: _linkCollection!,
+                      existingTitleId: _metaId!,
+                    );
+                  }
+                },
+                child: const SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.save_as_outlined),
+                      SizedBox(width: 8.0),
+                      Text('Selesai & Simpan'),
+                    ],
+                  ),
+                ),
+              ),
+              _ => SizedBox(),
+            },
           ),
         ],
       ),
@@ -1064,6 +1232,88 @@ class _ManualInputPageState extends State<ManualInputPage> {
             _showAddColumnDialog();
           },
         ),
+        const SizedBox(height: 30),
+      ],
+    );
+  }
+
+  Widget _buildChartSelectionStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // --- HEADER JUDUL ---
+        const Text(
+          'Visualisasi Data',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          'Pilih jenis grafik yang ingin ditampilkan:',
+          style: TextStyle(color: Colors.grey),
+        ),
+        const SizedBox(height: 10),
+
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _selectedChartType,
+              isExpanded: true,
+              icon: const Icon(Icons.bar_chart),
+              items: _chartTypeOptions.map((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Row(
+                    children: [
+                      // Ikon dinamis sesuai teks
+                      Icon(switch (value) {
+                        'Bar Chart' => Icons.bar_chart_rounded,
+                        'Line Chart' => Icons.show_chart_rounded,
+                        _ => Icons.visibility_off_rounded,
+                      }, color: Colors.blueAccent),
+                      const SizedBox(width: 10),
+                      Text(value),
+                    ],
+                  ),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                if (newValue != null) {
+                  setState(() {
+                    _selectedChartType = newValue;
+                    _atribut['chart'] = _chartTypeOptions.indexOf(
+                      _selectedChartType,
+                    );
+                  });
+                }
+              },
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 30),
+
+        // --- AREA PREVIEW CHART ---
+        const Text(
+          'Pratinjau Grafik:',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 10),
+
+        // Container untuk Chart
+        switch (_selectedChartType) {
+          'Bar Chart' => DesignedBarChart(
+            data: _rowData,
+            atribute: _atribut, // Pastikan _atribut sudah terisi column
+          ),
+          'Line Chart' => DesignedLineChart(data: _rowData, atribute: _atribut),
+          _ => const Center(child: Text("Chart Tidak Ditampilkan")),
+        },
+
         const SizedBox(height: 30),
       ],
     );
