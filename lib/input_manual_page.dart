@@ -56,8 +56,8 @@ class _ManualInputPageState extends State<ManualInputPage> {
 
   late final List<Map<String, dynamic>>? _oriRowData;
   late final Map<String, dynamic>? _oriAtribut;
-  late final String? _oriCategory;
-  late final String? _oriSubCategory;
+  late final int? _oriCategory;
+  late final int? _oriSubCategory;
   late final String? _oriTitle;
   String? _linkCollection;
   String? _metaId;
@@ -79,6 +79,8 @@ class _ManualInputPageState extends State<ManualInputPage> {
       _loadDraft();
     } else {
       _loadDataIn();
+      print('IDMETA : $_metaId');
+      print('ORI ATRIBUT  $_oriAtribut');
     }
   }
 
@@ -250,7 +252,9 @@ class _ManualInputPageState extends State<ManualInputPage> {
     if (_rowData.isNotEmpty && _atribut.isNotEmpty) {
       setState(() {
         _currentStep = 3;
-        _atribut['chart'] = 0;
+        if (_atribut['chart'] == null) {
+          _atribut['chart'] = 0;
+        }
       });
     }
   }
@@ -597,7 +601,7 @@ class _ManualInputPageState extends State<ManualInputPage> {
   }
 
   void _loadDataIn() {
-    _atribut = widget.dataIn!['atribut'];
+    _atribut = Map.from(widget.dataIn!['atribut']);
     var tempCol = _atribut['column'] as List<dynamic>? ?? [];
     _columns.clear();
     for (var col in tempCol) {
@@ -608,7 +612,7 @@ class _ManualInputPageState extends State<ManualInputPage> {
         ),
       );
     }
-    _rowData = widget.dataIn!['data'];
+    _rowData = List.from(widget.dataIn!['data']);
     // print(_rowData);
 
     if (widget.dataIn!['isEdited'] != null) {
@@ -616,18 +620,18 @@ class _ManualInputPageState extends State<ManualInputPage> {
       _oriTitle = _titleController.text;
       final Category tempCat = Category.values[widget.dataIn!['category']];
       _kategoriData = tempCat.name.toUpperCase();
-      _oriCategory = _kategoriData!;
+      _oriCategory = widget.dataIn!['category'];
       // print(tempCat);
       // print(widget.dataIn!['subcategory']);
       _subKategoriData =
           AppVar.subCategory[tempCat]![widget.dataIn!['subcategory']];
-      _oriSubCategory =
-          AppVar.subCategory[tempCat]![widget.dataIn!['subcategory']];
+      _oriSubCategory = widget.dataIn!['subcategory'];
       _subItems = AppVar.subCategory[tempCat]!;
-      _oriRowData = widget.dataIn!['data'];
-      _oriAtribut = widget.dataIn!['atribut'];
+      _oriRowData = List.from(widget.dataIn!['data']);
+      _oriAtribut = Map.from(widget.dataIn!['atribut']);
       _linkCollection = widget.dataIn!['link'];
       _selectedChartType = _chartTypeOptions[_atribut['chart'] ?? 0];
+      _metaId = widget.dataIn!['id'];
     }
   }
 
@@ -769,8 +773,8 @@ class _ManualInputPageState extends State<ManualInputPage> {
       return;
     }
 
-    if (!context.mounted) return;
-    _showLoadingDialog(context);
+    // if (!context.mounted) return;
+    // _showLoadingDialog(context);
 
     bool isMetadataChanged =
         _titleController.text != _oriTitle ||
@@ -786,6 +790,9 @@ class _ManualInputPageState extends State<ManualInputPage> {
       _atribut,
       _oriAtribut,
     );
+
+    print('NEW ATRIBUT : $_atribut');
+    print('ORI ATRIBUT  $_oriAtribut');
 
     if (!isMetadataChanged && !isRowDataChanged && !isAtributChanged) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -808,28 +815,48 @@ class _ManualInputPageState extends State<ManualInputPage> {
               'subcategory': _atribut['subcategory'],
               'updated_at': FieldValue.serverTimestamp(),
             });
-        print('✅ Metadata updated');
+        // print('✅ Metadata updated');
+
+        // print('METADATA ORI : ${[_oriTitle, _oriCategory, _oriSubCategory]}');
+        // print(
+        //   'METADATA BARU : ${[_titleController.text, _atribut['category'], _atribut['subcategory']]}',
+        // );
       }
 
       if (isRowDataChanged) {
         await updateDataBatch(existingLink, _rowData); // Fungsi batch lama Anda
-        print('✅ Row Data updated (Full Batch)');
+        // print('✅ Row Data updated (Full Batch)');
       }
       // C. Update Atribut Saja (Jika Row Data TETAP, tapi setting chart/atribut berubah)
       else if (isAtributChanged) {
         // Kita tidak perlu menghapus/tulis ulang ribuan data row. Cukup update 1 dokumen atribut.
         await FirebaseFirestore.instance
-            .collection('/data-umum/list_data/$existingLink')
+            .collection(existingLink)
             .doc('atribut')
             .set(_atribut); // Gunakan set atau update
-        print('✅ Attribute updated only');
+        // print('✅ Attribute updated only');
       }
 
-      // --- Selesai ---
-      if (context.mounted) Navigator.of(context).pop(); // Tutup Loading
+      if (context.mounted) Navigator.of(context).pop();
+
+      if (context.mounted) {
+        _showStatusDialog(
+          context,
+          icon: Icons.check_circle_outline,
+          color: Colors.green,
+          message: 'Berhasil Diperbarui!',
+        );
+      }
+      _deleteDraft();
+      await Future.delayed(const Duration(seconds: 2));
+      if (!context.mounted) return;
+
+      Navigator.of(context).pop(true);
 
       // ... Tampilkan Dialog Sukses & Navigasi (sama seperti kode sebelumnya) ...
     } catch (e) {
+      print(e);
+      if (context.mounted) Navigator.of(context).pop(); // Tutup Loading
       // ... Handle Error ...
     }
   }
