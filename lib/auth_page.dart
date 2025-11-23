@@ -31,7 +31,7 @@ class _LoginPageState extends State<LoginPage> {
         }
         _showErrorDialog(message);
       } catch (e) {
-        _showErrorDialog('Terjadi error tak terduga: $e');
+        print('Terjadi error tak terduga: $e');
       }
     }
   }

@@ -1,10 +1,9 @@
+import 'package:admin_lapissatu/atoms/func_utils.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+
 import 'dart:io';
 
 class UpdatePublikasi extends StatefulWidget {
@@ -15,7 +14,7 @@ class UpdatePublikasi extends StatefulWidget {
 }
 
 class _UpdatePublikasiState extends State<UpdatePublikasi> {
-  List<Map<String, dynamic>> publicationList = [];
+  List<Map<String, String>> publicationList = [];
 
   Future<List<Map<String, String>>> fetchPublikasiFromFirestore() async {
     try {
@@ -35,23 +34,21 @@ class _UpdatePublikasiState extends State<UpdatePublikasi> {
         // 2. Ambil dan format timestamp
         String formattedDate = 'Tanggal tidak tersedia';
         if (data['release_time'] != null && data['release_time'] is Timestamp) {
-          // Ubah Timestamp menjadi objek DateTime
           DateTime date = (data['release_time'] as Timestamp).toDate();
           formattedDate = DateFormat('d MMMM yyyy').format(date);
         }
 
         return {
           'id': doc.id,
-          'title': data['title']?.toString() ?? 'Tanpa Judul',
+          'title': data['title']?.toString() ?? '',
           'cover': data['cover']?.toString() ?? '',
           'release_time': formattedDate,
-          'abstraction':
-              data['abstraction']?.toString() ?? 'Tidak ada deskripsi.',
-          'catalog_num': data['katalog_num']?.toString() ?? '-',
-          'publication_num': data['publication_num']?.toString() ?? '-',
-          'issn': data['issn']?.toString() ?? '-',
-          'freq': data['freq']?.toString() ?? '-',
-          'pub_link': data['pub_link']?.toString() ?? '-',
+          'abstraction': data['abstraction']?.toString() ?? '',
+          'catalog_num': data['catalog_num']?.toString() ?? '',
+          'publication_num': data['publication_num']?.toString() ?? '',
+          'issn': data['issn']?.toString() ?? '',
+          'freq': data['freq']?.toString() ?? '',
+          'pub_link': data['pub_link']?.toString() ?? '',
         };
       }).toList();
       return publications;
@@ -81,7 +78,7 @@ class _UpdatePublikasiState extends State<UpdatePublikasi> {
   }
 
   Future<void> _editItem(int index) async {
-    final updatedData = await Navigator.push<Map<String, dynamic>>(
+    final String? idData = await Navigator.push<String?>(
       context,
       MaterialPageRoute(
         builder: (context) =>
@@ -89,19 +86,34 @@ class _UpdatePublikasiState extends State<UpdatePublikasi> {
             EditPublikasiPage(initialData: publicationList[index]),
       ),
     );
-    if (updatedData != null) {
+    if (idData != null) {
+      Map<String, dynamic> docData = await FireBaseDB.loadDocument(
+        collectionPath: 'publikasi',
+        docId: idData,
+      );
+      DateTime date = (docData['release_time'] as Timestamp).toDate();
+      String formattedDate = DateFormat('d MMMM yyyy').format(date);
+      docData['release_time'] = formattedDate;
       setState(() {
-        publicationList[index] = updatedData;
+        publicationList[index] = Map<String, String>.from(docData);
       });
     }
   }
 
   Future<void> _addItem() async {
-    final newData = await Navigator.push<Map<String, dynamic>>(
+    final String? idData = await Navigator.push<String?>(
       context,
       MaterialPageRoute(builder: (context) => EditPublikasiPage()),
     );
-    if (newData != null) {
+    if (idData != null) {
+      Map<String, dynamic> docData = await FireBaseDB.loadDocument(
+        collectionPath: 'publikasi',
+        docId: idData,
+      );
+      DateTime date = (docData['release_time'] as Timestamp).toDate();
+      String formattedDate = DateFormat('d MMMM yyyy').format(date);
+      docData['release_time'] = formattedDate;
+      Map<String, String> newData = Map<String, String>.from(docData);
       setState(() {
         publicationList.add(newData);
       });
@@ -137,7 +149,7 @@ class _UpdatePublikasiState extends State<UpdatePublikasi> {
 
           // Jika tidak ada data
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('Tidak ada infografis tersedia.'));
+            return const Center(child: Text('Tidak ada publikasi tersedia.'));
           }
 
           // Jika data berhasil dimuat, bangun MasonryGridView
@@ -161,7 +173,7 @@ class _UpdatePublikasiState extends State<UpdatePublikasi> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8.0),
                         child: CachedNetworkImage(
-                          imageUrl: pub['cover'],
+                          imageUrl: pub['cover']!,
                           placeholder: (context, url) =>
                               const Center(child: CircularProgressIndicator()),
                           errorWidget: (context, url, error) =>
@@ -176,7 +188,7 @@ class _UpdatePublikasiState extends State<UpdatePublikasi> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              pub['release_time'],
+                              pub['release_time'] ?? '',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey[600],
@@ -184,7 +196,7 @@ class _UpdatePublikasiState extends State<UpdatePublikasi> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              pub['title'],
+                              pub['title'] ?? 'Tidak Ada Judul',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
@@ -192,7 +204,7 @@ class _UpdatePublikasiState extends State<UpdatePublikasi> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              pub['abstraction'],
+                              pub['abstraction'] ?? 'Tidak ada abstraksi',
                               style: TextStyle(color: Colors.grey[700]),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -251,15 +263,21 @@ class _EditPublikasiPageState extends State<EditPublikasiPage> {
   late TextEditingController _freqController;
   late TextEditingController _pubLinkController;
   late TextEditingController _dateController;
-  late String _currentImage;
 
+  bool _isEdit = false;
+
+  late String? _imageURL;
   File? _imageFile;
+
   final format = DateFormat('d MMMM yyyy');
 
   @override
   void initState() {
     super.initState();
     final data = widget.initialData;
+    if (data != null) {
+      _isEdit = true;
+    }
     _titleController = TextEditingController(text: data?['title'] ?? '');
     _abstractionController = TextEditingController(
       text: data?['abstraction'] ?? '',
@@ -275,11 +293,7 @@ class _EditPublikasiPageState extends State<EditPublikasiPage> {
     _pubLinkController = TextEditingController(text: data?['pub_link'] ?? '');
     _dateController = TextEditingController(text: data?['release_time'] ?? '');
 
-    if (data != null) {
-      _currentImage = data['cover'];
-    } else {
-      _currentImage = '';
-    }
+    _imageURL = data?['cover'];
   }
 
   @override
@@ -295,103 +309,89 @@ class _EditPublikasiPageState extends State<EditPublikasiPage> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-    );
-    if (result != null) {
-      setState(() {
-        _imageFile = File(result.files.single.path!);
-      });
-    }
-  }
-
-  Future<String?> _uploadImage(File imageFile) async {
-    const String cloudName = "dxkxrbteg";
-    const String uploadPreset = "LapisSatu-Publikasi";
-
-    final url = Uri.parse(
-      'https://api.cloudinary.com/v1_1/$cloudName/image/upload',
-    );
-    final request = http.MultipartRequest('POST', url)
-      ..fields['upload_preset'] = uploadPreset
-      ..files.add(await http.MultipartFile.fromPath('file', imageFile.path));
-
-    try {
-      final response = await request.send();
-      if (response.statusCode == 200) {
-        final responseData = await response.stream.bytesToString();
-        final jsonData = json.decode(responseData);
-        // Ambil URL gambar yang aman (https)
-        final imageUrl = jsonData['secure_url'];
-        print('Upload berhasil! URL: $imageUrl');
-        return imageUrl;
-      } else {
-        print('Error: ${response.statusCode}');
-        print(await response.stream.bytesToString());
-        return null;
-      }
-    } catch (e) {
-      print('Terjadi kesalahan: $e');
-      return null;
-    }
-  }
-
   void _saveForm() async {
+    LoadingHelper.showLoadingDialog(context);
     String? idTemp;
-    if (_imageFile != null) {
-      _currentImage = await _uploadImage(_imageFile!) as String;
-    }
 
-    if (_formKey.currentState!.validate() && _currentImage.isNotEmpty) {
-      Timestamp tgl = Timestamp.fromDate(format.parse(_dateController.text));
-      final dataFirestore = {
-        'title': _titleController.text,
-        'cover': _currentImage,
-        'abstraction': _abstractionController.text,
-        'catalog_num': _catalogNumController.text,
-        'publication_num': _publicationNumController.text,
-        'issn': _issnController.text,
-        'freq': _freqController.text,
-        'pub_link': _pubLinkController.text,
-        'release_time': tgl,
-      };
-
-      if (widget.initialData != null) {
-        try {
-          idTemp = widget.initialData?['id'];
-          DocumentReference documentReference = FirebaseFirestore.instance
-              .collection('publikasi')
-              .doc(idTemp!);
-          await documentReference.update(dataFirestore);
-        } catch (e) {
-          rethrow;
-        }
-      } else {
-        try {
-          DocumentReference docRef = await FirebaseFirestore.instance
-              .collection('publikasi')
-              .add(dataFirestore);
-          idTemp = docRef.id;
-        } catch (e) {
-          rethrow;
+    if (_formKey.currentState!.validate()) {
+      if (_imageFile != null) {
+        String newImageURL =
+            await FireBaseDB.uploadImage(
+                  file: _imageFile!,
+                  cloudPath: 'public_image/publikasi',
+                )
+                as String;
+        if (_isEdit) {
+          await FireBaseDB.deleteImageByUrl(_imageURL!);
+          _imageURL = newImageURL;
+        } else {
+          _imageURL = newImageURL;
         }
       }
+      if (_imageURL != null) {
+        Timestamp tgl = Timestamp.fromDate(format.parse(_dateController.text));
+        final dataFirestore = {
+          'title': _titleController.text,
+          'cover': _imageURL,
+          'abstraction': _abstractionController.text,
+          'catalog_num': _catalogNumController.text,
+          'publication_num': _publicationNumController.text,
+          'issn': _issnController.text,
+          'freq': _freqController.text,
+          'pub_link': _pubLinkController.text,
+          'release_time': tgl,
+        };
 
-      final Map<String, String> data = {
-        'id': idTemp,
-        'title': _titleController.text,
-        'cover': _currentImage,
-        'abstraction': _abstractionController.text,
-        'catalog_num': _catalogNumController.text,
-        'publication_num': _publicationNumController.text,
-        'issn': _issnController.text,
-        'freq': _freqController.text,
-        'pub_link': _pubLinkController.text,
-        'release_time': _dateController.text,
-      };
-      if (mounted) {
-        Navigator.pop(context, data);
+        if (_isEdit) {
+          bool dataChange = false;
+          if (widget.initialData!['title'] != _titleController.text ||
+              widget.initialData!['cover'] != _imageURL ||
+              widget.initialData!['abstraction'] !=
+                  _abstractionController.text ||
+              widget.initialData!['catalog_num'] !=
+                  _catalogNumController.text ||
+              widget.initialData!['publication_num'] !=
+                  _publicationNumController.text ||
+              widget.initialData!['issn'] != _issnController.text ||
+              widget.initialData!['freq'] != _freqController.text ||
+              widget.initialData!['pub_link'] != _pubLinkController.text ||
+              widget.initialData!['release_time'] != _dateController.text) {
+            dataChange = true;
+          }
+          if (dataChange) {
+            try {
+              idTemp = widget.initialData?['id'];
+              await FireBaseDB.updateDocument(
+                collectionPath: 'publikasi',
+                docId: idTemp!,
+                newData: dataFirestore,
+              );
+            } catch (e) {
+              rethrow;
+            }
+          }
+        } else {
+          try {
+            DocumentReference docRef = await FirebaseFirestore.instance
+                .collection('publikasi')
+                .add(dataFirestore);
+            idTemp = docRef.id;
+          } catch (e) {
+            rethrow;
+          }
+        }
+        if (mounted) {
+          LoadingHelper.closeLoadingDialog(context);
+          Navigator.pop(context, idTemp);
+        }
+      } else {
+        if (mounted) {
+          showErrorDialog(
+            context: context,
+            message: 'Terjadi ERROR saat upload gambar',
+          );
+          LoadingHelper.closeLoadingDialog(context);
+        }
       }
     } else {
       if (mounted) {
@@ -400,6 +400,7 @@ class _EditPublikasiPageState extends State<EditPublikasiPage> {
             content: Text('Harap lengkapi semua field dan pilih gambar cover.'),
           ),
         );
+        LoadingHelper.closeLoadingDialog(context);
       }
     }
   }
@@ -441,39 +442,68 @@ class _EditPublikasiPageState extends State<EditPublikasiPage> {
               Center(
                 child: Column(
                   children: [
-                    Container(
-                      height: 200,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade400),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: _currentImage.isNotEmpty
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: _imageFile != null
-                                  ? Image.file(_imageFile!, fit: BoxFit.contain)
-                                  : CachedNetworkImage(
-                                      imageUrl: _currentImage,
-                                      placeholder: (context, url) =>
-                                          const Center(
-                                            child: CircularProgressIndicator(),
-                                          ),
-                                      errorWidget: (context, url, error) =>
-                                          const Icon(Icons.error),
-                                      fit: BoxFit.contain,
+                    Padding(
+                      padding: EdgeInsets.only(left: 50, right: 50),
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: (_imageFile != null || _isEdit)
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Column(
+                                  children: [
+                                    if (_imageFile != null)
+                                      Image.file(
+                                        _imageFile!,
+                                        fit: BoxFit.contain,
+                                      )
+                                    else
+                                      CachedNetworkImage(
+                                        imageUrl: _imageURL!,
+                                        placeholder: (context, url) =>
+                                            const Center(
+                                              child:
+                                                  CircularProgressIndicator(),
+                                            ),
+                                        errorWidget: (context, url, error) =>
+                                            const Icon(Icons.error),
+                                        fit: BoxFit.contain,
+                                      ),
+
+                                    TextButton.icon(
+                                      onPressed: () async {
+                                        final File? result =
+                                            await copyPickImage();
+                                        if (result != null) {
+                                          setState(() {
+                                            _imageFile = result;
+                                          });
+                                        }
+                                      },
+                                      icon: const Icon(Icons.edit),
+                                      label: const Text('Ganti Gambar'),
                                     ),
-                            )
-                          : _imageFile != null
-                          ? Image.file(_imageFile!, fit: BoxFit.contain)
-                          : const Center(
-                              child: Text('Belum ada gambar dipilih'),
-                            ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      onPressed: _pickImage,
-                      icon: const Icon(Icons.image_search),
-                      label: const Text('Ganti Gambar Cover'),
+                                  ],
+                                ),
+                              )
+                            : Center(
+                                child: TextButton.icon(
+                                  onPressed: () async {
+                                    final File? result = await copyPickImage();
+                                    if (result != null) {
+                                      setState(() {
+                                        _imageFile = result;
+                                      });
+                                    }
+                                  },
+                                  icon: const Icon(Icons.add_a_photo_outlined),
+                                  label: const Text('Pilih Gambar'),
+                                ),
+                              ),
+                      ),
                     ),
                   ],
                 ),
@@ -493,7 +523,6 @@ class _EditPublikasiPageState extends State<EditPublikasiPage> {
               TextFormField(
                 controller: _catalogNumController,
                 decoration: const InputDecoration(labelText: 'Katalog Number'),
-                validator: (v) => v!.isEmpty ? 'Tidak boleh kosong' : null,
               ),
               TextFormField(
                 controller: _publicationNumController,
@@ -537,14 +566,5 @@ class _EditPublikasiPageState extends State<EditPublikasiPage> {
         ),
       ),
     );
-  }
-}
-
-class AddPublikasiPage extends StatelessWidget {
-  const AddPublikasiPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const EditPublikasiPage();
   }
 }

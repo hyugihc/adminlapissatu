@@ -1,10 +1,15 @@
+import 'package:admin_lapissatu/atoms/enum_var.dart';
+import 'package:admin_lapissatu/atoms/func_utils.dart';
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
+// import 'package:file_picker/file_picker.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+// import 'package:http/http.dart' as http;
+// import 'package:path_provider/path_provider.dart';
+
+// import 'dart:convert';
 import 'dart:io';
 
 class UpdateInfografis extends StatefulWidget {
@@ -68,24 +73,29 @@ class _UpdateInfografisState extends State<UpdateInfografis> {
   }
 
   Future<void> _editItem(int index) async {
-    final updatedData = await Navigator.push<Map<String, dynamic>>(
+    String idDoc = infografisList[index]['id'] as String;
+    final bool? updatedData = await Navigator.push<bool?>(
       context,
       MaterialPageRoute(
         builder: (context) {
-          // return Scaffold();
-          return EditInfografisPage(initialData: infografisList[index]);
+          return AddInfografisPage(dataIn: infografisList[index]);
         },
       ),
     );
-    if (updatedData != null) {
+    if (updatedData == true) {
+      Map<String, dynamic> newData = await FireBaseDB.loadDocument(
+        collectionPath: 'infografis',
+        docId: idDoc,
+      );
+      newData.remove('time_upload');
       setState(() {
-        infografisList[index] = updatedData as Map<String, String>;
+        infografisList[index] = Map<String, String>.from(newData);
       });
     }
   }
 
   Future<void> _addItem() async {
-    final newData = await Navigator.push<Map<String, dynamic>>(
+    final String? newDataId = await Navigator.push<String?>(
       context,
       MaterialPageRoute(
         builder: (context) {
@@ -93,9 +103,14 @@ class _UpdateInfografisState extends State<UpdateInfografis> {
         },
       ),
     );
-    if (newData != null) {
+    if (newDataId != null) {
+      Map<String, dynamic> newData = await FireBaseDB.loadDocument(
+        collectionPath: 'infografis',
+        docId: newDataId,
+      );
+      newData.remove('time_upload');
       setState(() {
-        infografisList.add(newData as Map<String, String>);
+        infografisList.add(Map<String, String>.from(newData));
       });
     }
   }
@@ -114,7 +129,7 @@ class _UpdateInfografisState extends State<UpdateInfografis> {
             vertical: 24,
           ),
           content: SizedBox(
-            height: MediaQuery.of(context).size.height * 0.7,
+            // height: MediaQuery.of(context).size.height * 0.7,
             width: MediaQuery.of(context).size.width,
             child: Column(
               children: [
@@ -151,7 +166,7 @@ class _UpdateInfografisState extends State<UpdateInfografis> {
                     child: Text(
                       info['description']!,
                       textAlign: TextAlign.justify,
-                      style: TextStyle(color: Colors.grey[700]),
+                      style: TextStyle(color: Colors.black),
                     ),
                   ),
                 ),
@@ -275,190 +290,9 @@ class _UpdateInfografisState extends State<UpdateInfografis> {
   }
 }
 
-class EditInfografisPage extends StatefulWidget {
-  final Map<String, String> initialData;
-  const EditInfografisPage({super.key, required this.initialData});
-
-  @override
-  State<EditInfografisPage> createState() => _EditInfografisPageState();
-}
-
-class _EditInfografisPageState extends State<EditInfografisPage> {
-  late TextEditingController _titleController;
-  late TextEditingController _descriptionController;
-  late String _currentImage;
-  late String _docID;
-  File? _imageFile;
-
-  @override
-  void initState() {
-    super.initState();
-    _titleController = TextEditingController(text: widget.initialData['title']);
-    _descriptionController = TextEditingController(
-      text: widget.initialData['description'],
-    );
-    _currentImage = widget.initialData['image'] as String;
-    _docID = widget.initialData['id'] as String;
-  }
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _descriptionController.dispose();
-    super.dispose();
-  }
-
-  Future<String?> _uploadImage(File imageFile) async {
-    const String cloudName = "dxkxrbteg";
-    const String uploadPreset = "LapisSatu-Infografis";
-
-    final url = Uri.parse(
-      'https://api.cloudinary.com/v1_1/$cloudName/image/upload',
-    );
-    final request = http.MultipartRequest('POST', url)
-      ..fields['upload_preset'] = uploadPreset
-      ..files.add(await http.MultipartFile.fromPath('file', imageFile.path));
-
-    try {
-      final response = await request.send();
-      if (response.statusCode == 200) {
-        final responseData = await response.stream.bytesToString();
-        final jsonData = json.decode(responseData);
-        // Ambil URL gambar yang aman (https)
-        final imageUrl = jsonData['secure_url'];
-        print('Upload berhasil! URL: $imageUrl');
-        return imageUrl;
-      } else {
-        print('Error: ${response.statusCode}');
-        print(await response.stream.bytesToString());
-        return null;
-      }
-    } catch (e) {
-      print('Terjadi kesalahan: $e');
-      return null;
-    }
-  }
-
-  void _saveChanges(BuildContext context) async {
-    if (_imageFile != null) {
-      _currentImage = await _uploadImage(_imageFile as File) as String;
-    }
-
-    final Map<String, String> updatedData = {
-      'title': _titleController.text,
-      'image': _currentImage,
-      'description': _descriptionController.text,
-    };
-    try {
-      DocumentReference documentReference = FirebaseFirestore.instance
-          .collection('infografis')
-          .doc(_docID);
-      await documentReference.update(updatedData);
-
-      print("Data berhasil diperbarui!");
-    } catch (e) {
-      print("Error memperbarui data: $e");
-      rethrow;
-    }
-    final Map<String, String> result = {
-      'id': _docID,
-      'title': _titleController.text,
-      'description': _descriptionController.text,
-      'image': _currentImage, // Sertakan juga field lain yang tidak berubah
-    };
-    if (context.mounted) {
-      Navigator.pop(context, result);
-    }
-  }
-
-  Future<void> _pickImage() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-    );
-    if (result != null) {
-      setState(() {
-        _imageFile = File(result.files.single.path!);
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Edit Infografis'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: () {
-              _saveChanges(context);
-            },
-            tooltip: 'Simpan Perubahan',
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Center(
-              child: Column(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12.0),
-                    child: _imageFile != null
-                        ? Image.file(
-                            _imageFile as File,
-                            height: 200,
-                            fit: BoxFit.contain,
-                          )
-                        : CachedNetworkImage(
-                            imageUrl: _currentImage,
-                            placeholder: (context, url) => const Center(
-                              child: CircularProgressIndicator(),
-                            ),
-                            errorWidget: (context, url, error) =>
-                                const Icon(Icons.error),
-                            height: 200,
-                            fit: BoxFit.contain,
-                          ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: _pickImage,
-                    icon: const Icon(Icons.image_search),
-                    label: const Text('Ganti Gambar dari Galeri'),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 32),
-            TextField(
-              controller: _titleController,
-              decoration: const InputDecoration(
-                labelText: 'Judul',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Deskripsi',
-                border: OutlineInputBorder(),
-                alignLabelWithHint: true,
-              ),
-              maxLines: 5,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class AddInfografisPage extends StatefulWidget {
-  const AddInfografisPage({super.key});
+  final Map<String, dynamic>? dataIn;
+  const AddInfografisPage({super.key, this.dataIn});
 
   @override
   State<AddInfografisPage> createState() => _AddInfografisPageState();
@@ -467,8 +301,12 @@ class AddInfografisPage extends StatefulWidget {
 class _AddInfografisPageState extends State<AddInfografisPage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+
   File? _pickedImage;
   String? _imageURL;
+
+  bool _isEdit = false;
+  bool _isImageChanged = false;
 
   @override
   void dispose() {
@@ -477,11 +315,29 @@ class _AddInfografisPageState extends State<AddInfografisPage> {
     super.dispose();
   }
 
-  void _saveNewItem(BuildContext context) async {
+  @override
+  void initState() {
+    if (widget.dataIn != null) {
+      _isEdit = true;
+
+      final Map<String, dynamic> dataOld = Map.from(widget.dataIn!);
+      _titleController.text = dataOld['title'];
+      _descriptionController.text = dataOld['description'];
+      _imageURL = dataOld['image'];
+    }
+    super.initState();
+  }
+
+  void _saveNewInfografis(BuildContext context) async {
+    LoadingHelper.showLoadingDialog(context);
     if (_titleController.text.isNotEmpty &&
         _descriptionController.text.isNotEmpty &&
         _pickedImage != null) {
-      _imageURL = await _uploadImage(_pickedImage as File);
+      _imageURL = await FireBaseDB.uploadImage(
+        file: _pickedImage!,
+        cloudPath: 'public_image/infografis',
+      );
+      await _pickedImage!.delete();
 
       final newData = {
         'title': _titleController.text,
@@ -490,65 +346,72 @@ class _AddInfografisPageState extends State<AddInfografisPage> {
         'time_upload': FieldValue.serverTimestamp(),
       };
       try {
-        await FirebaseFirestore.instance.collection('infografis').add(newData);
+        final DocumentReference docRef = await FirebaseFirestore.instance
+            .collection('infografis')
+            .add(newData);
+        if (context.mounted) {
+          LoadingHelper.closeLoadingDialog(context);
+          Navigator.pop(context, docRef.id);
+        }
       } catch (e) {
-        // print("Error memperbarui data: $e");
+        print("Error memperbarui data: $e");
         rethrow;
       }
-      final Map<String, String> result = {
-        'title': _titleController.text,
-        'image': _imageURL as String,
-        'description': _descriptionController.text,
-      };
-      if (context.mounted) {
-        Navigator.pop(context, result);
-      }
     } else {
+      if (context.mounted) {
+        LoadingHelper.closeLoadingDialog(context);
+      }
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Semua field harus diisi!')));
     }
   }
 
-  Future<void> _pickImage() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-    );
-    if (result != null) {
-      setState(() {
-        _pickedImage = File(result.files.single.path!);
-      });
+  void _saveUpdateInfografis(BuildContext context) async {
+    LoadingHelper.showLoadingDialog(context);
+    bool updated = false;
+    if (_isImageChanged) {
+      final String newImageURL =
+          await FireBaseDB.uploadImage(
+                file: _pickedImage!,
+                cloudPath: 'public_image/infografis',
+              )
+              as String;
+      await FireBaseDB.deleteImageByUrl(_imageURL!);
+      _imageURL = newImageURL;
     }
-  }
-
-  Future<String?> _uploadImage(File imageFile) async {
-    const String cloudName = "dxkxrbteg";
-    const String uploadPreset = "LapisSatu-Infografis";
-
-    final url = Uri.parse(
-      'https://api.cloudinary.com/v1_1/$cloudName/image/upload',
-    );
-    final request = http.MultipartRequest('POST', url)
-      ..fields['upload_preset'] = uploadPreset
-      ..files.add(await http.MultipartFile.fromPath('file', imageFile.path));
-
-    try {
-      final response = await request.send();
-      if (response.statusCode == 200) {
-        final responseData = await response.stream.bytesToString();
-        final jsonData = json.decode(responseData);
-        // Ambil URL gambar yang aman (https)
-        final imageUrl = jsonData['secure_url'];
-        print('Upload berhasil! URL: $imageUrl');
-        return imageUrl;
-      } else {
-        print('Error: ${response.statusCode}');
-        print(await response.stream.bytesToString());
-        return null;
+    final bool isDataChanged;
+    if (_titleController.text != widget.dataIn!['title'] ||
+        _descriptionController.text != widget.dataIn!['description']) {
+      isDataChanged = true;
+    } else {
+      isDataChanged = false;
+    }
+    if (_isImageChanged || isDataChanged) {
+      final newData = {
+        'title': _titleController.text,
+        'description': _descriptionController.text,
+        'image': _imageURL,
+        'time_upload': FieldValue.serverTimestamp(),
+      };
+      await FireBaseDB.updateDocument(
+        collectionPath: 'infografis',
+        docId: widget.dataIn!['id'],
+        newData: newData,
+      );
+      updated = true;
+    } else {
+      if (context.mounted) {
+        SnackbarHelper.show(
+          context,
+          message: 'Tidak ada data yang diperbarui',
+          type: SnackbarType.info,
+        );
       }
-    } catch (e) {
-      print('Terjadi kesalahan: $e');
-      return null;
+    }
+    if (context.mounted) {
+      LoadingHelper.closeLoadingDialog(context);
+      Navigator.pop(context, updated);
     }
   }
 
@@ -556,12 +419,18 @@ class _AddInfografisPageState extends State<AddInfografisPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tambah Infografis Baru'),
+        title: _isEdit
+            ? const Text('Update Infografis')
+            : const Text('Tambah Infografis Baru'),
         actions: [
           IconButton(
             icon: const Icon(Icons.save_outlined),
             onPressed: () {
-              _saveNewItem(context);
+              if (_isEdit) {
+                _saveUpdateInfografis(context);
+              } else {
+                _saveNewInfografis(context);
+              }
             },
             tooltip: 'Simpan',
           ),
@@ -571,25 +440,59 @@ class _AddInfografisPageState extends State<AddInfografisPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            Container(
-              height: 200,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: _pickedImage != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.file(_pickedImage!, fit: BoxFit.contain),
-                    )
-                  : Center(
-                      child: TextButton.icon(
-                        onPressed: _pickImage,
-                        icon: const Icon(Icons.add_a_photo_outlined),
-                        label: const Text('Pilih Gambar'),
+            Padding(
+              padding: EdgeInsets.only(left: 50, right: 50),
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: (_pickedImage != null || _isEdit)
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Column(
+                          children: [
+                            if (_pickedImage != null)
+                              Image.file(_pickedImage!, fit: BoxFit.contain)
+                            else
+                              CachedNetworkImage(
+                                imageUrl: _imageURL!,
+                                fit: BoxFit.contain,
+                              ),
+
+                            TextButton.icon(
+                              onPressed: () async {
+                                final File? result = await copyPickImage();
+                                if (result != null) {
+                                  setState(() {
+                                    _pickedImage = result;
+                                    _isImageChanged = true;
+                                  });
+                                }
+                              },
+                              icon: const Icon(Icons.edit),
+                              label: const Text('Ganti Gambar'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Center(
+                        child: TextButton.icon(
+                          onPressed: () async {
+                            final File? result = await copyPickImage();
+                            if (result != null) {
+                              setState(() {
+                                _pickedImage = result;
+                                _isImageChanged = true;
+                              });
+                            }
+                          },
+                          icon: const Icon(Icons.add_a_photo_outlined),
+                          label: const Text('Pilih Gambar'),
+                        ),
                       ),
-                    ),
+              ),
             ),
             const SizedBox(height: 16),
             TextField(

@@ -1,10 +1,10 @@
 import 'dart:typed_data';
 import 'package:admin_lapissatu/atoms/const_var.dart';
+import 'package:admin_lapissatu/atoms/func_utils.dart';
 import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 
-import 'package:admin_lapissatu/atoms/snackbar_info.dart';
 import 'package:admin_lapissatu/atoms/enum_var.dart';
 import 'package:admin_lapissatu/input_manual_page.dart';
 
