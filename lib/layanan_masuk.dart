@@ -667,12 +667,11 @@ class __BuildDetailFileRowState extends State<_BuildDetailFileRow> {
       return;
     }
     try {
-      final ref = FirebaseStorage.instance.ref(widget.filePath);
-      final url = await ref.getDownloadURL();
+      final ref = FirebaseStorage.instance.refFromURL(widget.filePath);
       final fileName = ref.name;
 
       setState(() {
-        _downloadURL = url;
+        _downloadURL = widget.filePath;
         _fileName = fileName;
         _isLoading = false;
       });
@@ -723,7 +722,7 @@ class __BuildDetailFileRowState extends State<_BuildDetailFileRow> {
             ListTile(
               leading: const Icon(Icons.attach_file, color: Colors.blue),
               title: Text(
-                _fileName,
+                'File Terlampir',
                 style: const TextStyle(
                   color: Colors.blue,
                   decoration: TextDecoration.underline,

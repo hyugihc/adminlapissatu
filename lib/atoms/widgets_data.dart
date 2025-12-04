@@ -7,6 +7,7 @@ import 'dart:math';
 
 import 'package:admin_lapissatu/atoms/enum_var.dart';
 import 'package:admin_lapissatu/atoms/func_utils.dart';
+import 'package:photo_view/photo_view.dart';
 
 class BarChartDataBundle {
   final List<BarChartGroupData> barGroups;
@@ -55,7 +56,8 @@ class _DesignedTableData extends State<DesignedTableData> {
       widget.atribute['column'],
     );
     _totalColumns = _columnStructure.length - 1;
-    print(widget.data);
+    _onSort(0, false, firstSort: true);
+    // print(widget.data);
   }
 
   void sortAlgorithm(int columnIndex, bool ascending) {
@@ -105,7 +107,7 @@ class _DesignedTableData extends State<DesignedTableData> {
             fixedWidth: val.keys.first == 'id_row'
                 ? 30
                 : val.values.first == 4
-                ? 50
+                ? 60
                 : val.values.first == 3
                 ? 90
                 : null,
@@ -140,7 +142,7 @@ class _DesignedTableData extends State<DesignedTableData> {
         value = value.toInt();
         return value.toString();
       case DataType.month:
-        if (value is int) return 'info';
+        if (value is int) return value.toString();
         return DateFormat('MMMM', 'id_ID').format(value);
       case DataType.date:
         return DateFormat('dd-MM-yyyy').format(value);
@@ -271,36 +273,10 @@ class _DesignedBarChart extends State<DesignedBarChart> {
 
   @override
   void initState() {
-    _recomColumn = _findColumnFitName();
+    _recomColumn = findColumnFitName(
+      columnMaster: List<Map>.from(widget.atribute['column']!),
+    );
     super.initState();
-  }
-
-  Map<String, List> _findColumnFitName() {
-    List<String> xLabel = [];
-    List<String> yCol = [];
-
-    for (var col in (widget.atribute['column'])) {
-      var tempvar = DataType.values[col.values.first as int];
-      if (col.keys.first == 'id_row') {
-        continue;
-      }
-      if ([
-        DataType.string,
-        DataType.year,
-        DataType.month,
-        DataType.date,
-      ].contains(tempvar)) {
-        xLabel.add(col.keys.first);
-      } else if ([
-        DataType.integer,
-        DataType.float,
-        DataType.money,
-      ].contains(tempvar)) {
-        yCol.add(col.keys.first);
-      }
-    }
-    Map<String, List> xyLabel = {'xlabel': xLabel, 'ylabel': yCol};
-    return xyLabel;
   }
 
   BarChartDataBundle transformDataToBarData({
@@ -351,6 +327,11 @@ class _DesignedBarChart extends State<DesignedBarChart> {
         final String display;
         if (data[xLabel] is num) {
           display = data[xLabel].toInt().toString();
+        } else if (data[xLabel] is DateTime || data[xLabel] is Timestamp) {
+          if (data[xLabel] is Timestamp) {
+            data[xLabel].toDate();
+          }
+          display = DateFormat('MMMM', 'id_ID').format(data[xLabel]);
         } else {
           display = data[xLabel].toString();
         }
@@ -391,12 +372,13 @@ class _DesignedBarChart extends State<DesignedBarChart> {
     maxYValue = yValues.reduce(max);
 
     if (minYValue == maxYValue) {
-      paddingY = minYValue * 0.5;
+      paddingY = minYValue * 0.3;
     } else {
       paddingY = (maxYValue - minYValue) * 0.5;
     }
 
     if ((minYValue - paddingY).floorToDouble() < 0) {
+      // minYChart = (minYValue - paddingY).floorToDouble();
       minYChart = 0;
     } else {
       minYChart = (minYValue - paddingY).floorToDouble();
@@ -512,6 +494,25 @@ class _DesignedBarChart extends State<DesignedBarChart> {
                   aspectRatio: 1.5,
                   child: BarChart(
                     BarChartData(
+                      gridData: FlGridData(
+                        show: true,
+                        getDrawingHorizontalLine: (value) {
+                          // Cek apakah nilai Y adalah 0
+                          if (value == 0) {
+                            return FlLine(
+                              // Tampilkan garis yang tebal dan berwarna merah
+                              color: Colors.red,
+                              strokeWidth: 2,
+                            );
+                          }
+
+                          // Untuk nilai Y lainnya, gunakan garis standar (atau sembunyikan)
+                          return FlLine(
+                            color: Colors.grey.withValues(alpha: .3),
+                            strokeWidth: 0.5,
+                          );
+                        },
+                      ),
                       barTouchData: BarTouchData(
                         enabled: true,
                         touchTooltipData: BarTouchTooltipData(
@@ -550,7 +551,7 @@ class _DesignedBarChart extends State<DesignedBarChart> {
                         ),
                       ),
                       borderData: FlBorderData(show: false),
-                      gridData: const FlGridData(show: false),
+                      // gridData: const FlGridData(show: false),
                     ),
                   ),
                 ),
@@ -560,14 +561,12 @@ class _DesignedBarChart extends State<DesignedBarChart> {
         ],
       );
     } catch (e) {
-      print(e);
       return const SizedBox.shrink();
     }
   }
 }
 
 class DesignedLineChart extends StatefulWidget {
-  // Asumsi widget Anda menerima parameter ini
   final List<Map<String, dynamic>> data;
   final Map<String, dynamic> atribute;
 
@@ -581,8 +580,6 @@ class DesignedLineChart extends StatefulWidget {
   State<DesignedLineChart> createState() => _DesignedLineChartState();
 }
 
-// --- KODE STATE YANG DIKONVERSI ---
-
 class _DesignedLineChartState extends State<DesignedLineChart> {
   final Map<String, dynamic> _atributeChart = {};
   late final Map<String, List> _recomColumn;
@@ -592,43 +589,10 @@ class _DesignedLineChartState extends State<DesignedLineChart> {
 
   @override
   void initState() {
-    // Pastikan _findColumnFitName dipanggil sebelum super.initState()
-    // jika _recomColumn digunakan di build() pertama kali.
-    _recomColumn = _findColumnFitName();
+    _recomColumn = findColumnFitName(
+      columnMaster: List<Map>.from(widget.atribute['column']!),
+    );
     super.initState();
-  }
-
-  // --- Fungsi ini TIDAK BERUBAH ---
-  // Logika Anda untuk menemukan kolom X dan Y sudah benar.
-  Map<String, List> _findColumnFitName() {
-    List<String> xLabel = [];
-    List<String> yCol = [];
-
-    // Pastikan 'widget.atribute['column']' adalah List<Map<String, dynamic>>
-    // atau sesuai dengan struktur data Anda.
-    // Di sini saya asumsikan formatnya List<Map<String, int>>
-    for (var col in (widget.atribute['column'] as List)) {
-      var tempvar = DataType.values[col.values.first as int];
-      if (col.keys.first == 'id_row') {
-        continue;
-      }
-      if ([
-        DataType.string,
-        DataType.year,
-        DataType.month,
-        DataType.date,
-      ].contains(tempvar)) {
-        xLabel.add(col.keys.first);
-      } else if ([
-        DataType.integer,
-        DataType.float,
-        DataType.money,
-      ].contains(tempvar)) {
-        yCol.add(col.keys.first);
-      }
-    }
-    Map<String, List> xyLabel = {'xlabel': xLabel, 'ylabel': yCol};
-    return xyLabel;
   }
 
   LineChartDataBundle transformDataToLineData({
@@ -644,7 +608,7 @@ class _DesignedLineChartState extends State<DesignedLineChart> {
       return LineChartDataBundle(lineBarsData: [], bottomTitles: []);
     }
 
-    List<FlSpot> spots = []; // <- Berubah dari BarChartGroupData
+    List<FlSpot> spots = [];
     List<String> bottomTitles = [];
     String xLabel = _recomColumn['xlabel']![idkX];
     String yLabel = _recomColumn['ylabel']![idkY];
@@ -655,19 +619,21 @@ class _DesignedLineChartState extends State<DesignedLineChart> {
       int index = entry.key;
       final data = entry.value;
 
-      // Untuk LineChart, 'x' adalah nilai numerik. Kita gunakan index.
       final double xValue = index.toDouble();
       final double yValue = (data[yLabel] as num?)?.toDouble() ?? 0.0;
-
-      // Tambahkan FlSpot (titik data)
       spots.add(FlSpot(xValue, yValue));
 
-      // Logika bottomTitles tetap sama
-      print('${data[xLabel]}');
       if (xLabel.isNotEmpty) {
         final String display;
+
         if (data[xLabel] is num) {
           display = data[xLabel].toInt().toString();
+        } else if (data[xLabel] is DateTime || data[xLabel] is Timestamp) {
+          if (data[xLabel] is Timestamp) {
+            display = DateFormat('MMMM', 'id_ID').format(data[xLabel].toDate());
+          } else {
+            display = DateFormat('MMMM', 'id_ID').format(data[xLabel]);
+          }
         } else {
           display = data[xLabel].toString();
         }
@@ -677,30 +643,31 @@ class _DesignedLineChartState extends State<DesignedLineChart> {
       }
     });
 
-    // Buat satu LineChartBarData yang berisi semua spots
     final lineBarData = LineChartBarData(
       spots: spots,
-      isCurved: true,
-      color: Colors.lightBlue,
-      barWidth: 4,
+      isCurved: false,
+      color: const Color.fromRGBO(3, 169, 244, 1),
+      barWidth: 8,
       isStrokeCapRound: true,
-      dotData: const FlDotData(show: true), // Tampilkan titik di data
-      // belowBarData: BarAreaData(
-      //   show: true,
-      //   color: Colors.lightBlue.withOpacity(0.3), // Area di bawah garis
-      // ),
+      dotData: FlDotData(
+        show: true,
+        getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+          radius: 7,
+          color: Colors.lightBlue,
+          strokeWidth: 2,
+          strokeColor: Colors.white,
+        ),
+      ),
     );
 
     return LineChartDataBundle(
-      lineBarsData: [lineBarData], // Kembalikan sebagai list
+      lineBarsData: [lineBarData],
       bottomTitles: bottomTitles,
     );
   }
 
-  // --- [DIUBAH] Fungsi computeChartAtribute ---
-  // Hanya mengubah cara mengambil yValues
   void computeChartAtribute() {
-    final LineChartDataBundle chartData; // <- Diubah
+    final LineChartDataBundle chartData;
     final List<double> yValues;
     final double minYValue;
     final double maxYValue;
@@ -714,7 +681,6 @@ class _DesignedLineChartState extends State<DesignedLineChart> {
       idkY: _selectedYIndex,
     );
 
-    // Ambil yValues dari spots, bukan barGroups
     yValues = (chartData.lineBarsData.isEmpty)
         ? []
         : chartData.lineBarsData.first.spots.map((spot) => spot.y).toList();
@@ -722,28 +688,21 @@ class _DesignedLineChartState extends State<DesignedLineChart> {
     if (yValues.isEmpty) {
       _atributeChart['chartData'] = chartData;
       _atributeChart['minY'] = 0.0;
-      _atributeChart['maxY'] = 10.0; // Nilai default
-      return; // Hentikan fungsi
+      _atributeChart['maxY'] = 10.0;
+      return;
     }
     minYValue = yValues.reduce(min);
     maxYValue = yValues.reduce(max);
 
-    // Sisa logika perhitungan min/max Y Anda TIDAK BERUBAH
     if (minYValue == maxYValue) {
-      paddingY = (minYValue == 0 ? 10 : minYValue) * 0.5; // Hindari 0 * 0.5
+      paddingY = (minYValue == 0 ? 10 : minYValue) * 0.5;
     } else {
-      paddingY = (maxYValue - minYValue) * 0.5;
+      paddingY = (maxYValue - minYValue) * 0.1;
     }
 
-    if ((minYValue - paddingY).floorToDouble() < 0) {
-      minYChart = 0;
-    } else {
-      minYChart = (minYValue - paddingY).floorToDouble();
-    }
-
+    minYChart = (minYValue - paddingY).floorToDouble();
     maxYChart = (maxYValue + paddingY).ceilToDouble();
 
-    // Pastikan min dan max tidak sama (menyebabkan error di fl_chart)
     if (minYChart == maxYChart) {
       minYChart = 0;
     }
@@ -754,11 +713,9 @@ class _DesignedLineChartState extends State<DesignedLineChart> {
   }
 
   Widget _buildControls() {
-    // Ambil list nama kolom
     List<String> xLabels = _recomColumn['xlabel']?.cast<String>() ?? [];
     List<String> yLabels = _recomColumn['ylabel']?.cast<String>() ?? [];
 
-    // Jika xLabels atau yLabels kosong, tampilkan pesan
     if (xLabels.isEmpty || yLabels.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(16.0),
@@ -778,7 +735,6 @@ class _DesignedLineChartState extends State<DesignedLineChart> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // --- DROPDOWN UNTUK X-AXIS ---
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -797,11 +753,10 @@ class _DesignedLineChartState extends State<DesignedLineChart> {
                     );
                   }).toList(),
                   onChanged: xLabels.isEmpty
-                      ? null // Disable jika tidak ada opsi
+                      ? null
                       : (newIndex) {
                           setState(() {
                             _selectedXIndex = newIndex!;
-                            // Panggil sortListMaps saat Sumbu X berubah
                             sortListMaps(
                               data: widget.data,
                               colName: xLabels[newIndex],
@@ -814,7 +769,6 @@ class _DesignedLineChartState extends State<DesignedLineChart> {
             ),
           ),
           const SizedBox(width: 16),
-          // --- DROPDOWN UNTUK Y-AXIS ---
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -851,10 +805,7 @@ class _DesignedLineChartState extends State<DesignedLineChart> {
   @override
   Widget build(BuildContext context) {
     try {
-      // Hitung atribut setiap kali build dipanggil
       computeChartAtribute();
-
-      // Ambil data yang sudah diproses
       final LineChartDataBundle chartData =
           _atributeChart['chartData'] as LineChartDataBundle;
 
@@ -873,26 +824,56 @@ class _DesignedLineChartState extends State<DesignedLineChart> {
                       child: LineChart(
                         // <- DIUBAH
                         LineChartData(
+                          extraLinesData: _atributeChart['minY'] < 0
+                              ? ExtraLinesData(
+                                  horizontalLines: [
+                                    HorizontalLine(y: 0, color: Colors.black),
+                                  ],
+                                )
+                              : null,
                           lineTouchData: LineTouchData(
                             enabled: true,
                             touchTooltipData: LineTouchTooltipData(
-                              // <- DIUBAH
-                              // tooltipBgColor: Colors.blueAccent.withOpacity(0.8),
+                              // Tambahkan warna background agar tulisan terbaca jelas
+                              getTooltipColor: (touchedSpot) =>
+                                  Colors.lightBlueAccent,
+
+                              getTooltipItems:
+                                  (List<LineBarSpot> touchedBarSpots) {
+                                    return touchedBarSpots.map((barSpot) {
+                                      final index = barSpot.x.toInt();
+                                      final List<String> daftarLabel =
+                                          _atributeChart['chartData']
+                                              .bottomTitles ??
+                                          [];
+                                      final String textLabel =
+                                          (index >= 0 &&
+                                              index < daftarLabel.length)
+                                          ? daftarLabel[index]
+                                          : '';
+
+                                      // 3. Return tampilan text
+                                      return LineTooltipItem(
+                                        // Format Text: "Januari = 20"
+                                        '$textLabel \n ${barSpot.y}',
+                                        const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      );
+                                    }).toList();
+                                  },
                             ),
                           ),
 
-                          // --- Min/Max Y (Sama) ---
+                          // --- Bagian bawah ini sama seperti kode Anda ---
                           minY: _atributeChart['minY'] as double,
                           maxY: _atributeChart['maxY'] as double,
-
-                          // --- Data Utama (Diubah) ---
                           lineBarsData: chartData.lineBarsData,
 
-                          // --- Judul Sumbu (Titles) ---
                           titlesData: FlTitlesData(
                             show: true,
-
-                            // --- Sembunyikan Sumbu Lain ---
                             rightTitles: const AxisTitles(
                               sideTitles: SideTitles(showTitles: false),
                             ),
@@ -900,7 +881,7 @@ class _DesignedLineChartState extends State<DesignedLineChart> {
                               sideTitles: SideTitles(
                                 showTitles: false,
                                 reservedSize: 50,
-                              ), // Tampilkan sumbu Y kiri
+                              ),
                             ),
                             topTitles: const AxisTitles(
                               sideTitles: SideTitles(showTitles: false),
@@ -913,25 +894,8 @@ class _DesignedLineChartState extends State<DesignedLineChart> {
                             ),
                           ),
 
-                          // --- Border & Grid ---
                           borderData: FlBorderData(show: false),
                           gridData: FlGridData(show: false),
-                          //   drawVerticalLine: true,
-                          //   getDrawingHorizontalLine: (value) {
-                          //     return const FlLine(
-                          //       color: Colors.grey,
-                          //       strokeWidth: 0.5,
-                          //       dashArray: [5, 5],
-                          //     );
-                          //   },
-                          //   getDrawingVerticalLine: (value) {
-                          //     return const FlLine(
-                          //       color: Colors.grey,
-                          //       strokeWidth: 0.5,
-                          //       dashArray: [5, 5],
-                          //     );
-                          //   },
-                          // ),
                         ),
                       ),
                     ),
@@ -942,12 +906,121 @@ class _DesignedLineChartState extends State<DesignedLineChart> {
           ),
         ],
       );
-    } catch (e, s) {
-      print('Error building chart: $e');
-      print(s);
+    } catch (e) {
+      // print('Error building chart: $e');
+      // print(s);
       return const SizedBox.shrink(
         child: Text("Gagal memuat chart"),
       ); // Tampilkan widget kosong jika error
     }
+  }
+}
+
+class ZoomableFullScreenImage extends StatelessWidget {
+  final ImageProvider imageP;
+  final String tag;
+
+  const ZoomableFullScreenImage({
+    super.key,
+    required this.imageP,
+    required this.tag,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          Center(
+            child: PhotoView(
+              imageProvider: imageP,
+              minScale: PhotoViewComputedScale.contained,
+              maxScale: PhotoViewComputedScale.covered * 2.5,
+              heroAttributes: PhotoViewHeroAttributes(tag: tag),
+            ),
+          ),
+
+          Positioned(
+            top: 40,
+            left: 10,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white, size: 30),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class SmallStatsCard extends StatelessWidget {
+  final int? count;
+  final String label;
+  final String? value;
+  final IconData icon;
+  final Color color;
+
+  const SmallStatsCard({
+    super.key,
+    this.count,
+    required this.label,
+    this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 32),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (count != null)
+                  Text(
+                    count.toString(),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                if (value != null)
+                  Text(
+                    value ?? '',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

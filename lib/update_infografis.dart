@@ -1,5 +1,6 @@
 import 'package:admin_lapissatu/atoms/enum_var.dart';
 import 'package:admin_lapissatu/atoms/func_utils.dart';
+import 'package:admin_lapissatu/atoms/widgets_data.dart';
 import 'package:flutter/material.dart';
 // import 'package:file_picker/file_picker.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
@@ -44,7 +45,6 @@ class _UpdateInfografisState extends State<UpdateInfografis> {
               data['description']?.toString() ?? 'Tidak ada deskripsi.',
         };
       }).toList();
-      print(infografisList);
       return infografisList;
     } catch (e) {
       print("Error saat mengambil data infografis: $e");
@@ -144,16 +144,29 @@ class _UpdateInfografisState extends State<UpdateInfografis> {
                 const SizedBox(height: 15),
                 Expanded(
                   flex: 4,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: CachedNetworkImage(
-                      imageUrl: info['image']!,
-                      placeholder: (context, url) =>
-                          const Center(child: CircularProgressIndicator()),
-                      errorWidget: (context, url, error) =>
-                          const Icon(Icons.error),
-                      fit: BoxFit.contain,
-                      width: double.infinity,
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ZoomableFullScreenImage(
+                            imageP: CachedNetworkImageProvider(info['image']!),
+                            tag: info['title']!,
+                          ),
+                        ),
+                      );
+                    },
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: CachedNetworkImage(
+                        imageUrl: info['image']!,
+                        placeholder: (context, url) =>
+                            const Center(child: CircularProgressIndicator()),
+                        errorWidget: (context, url, error) =>
+                            const Icon(Icons.error),
+                        fit: BoxFit.contain,
+                        width: double.infinity,
+                      ),
                     ),
                   ),
                 ),

@@ -1,4 +1,4 @@
-import 'package:admin_lapissatu/test_table.dart';
+// import 'package:admin_lapissatu/test_table.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:rxdart/rxdart.dart';
@@ -10,6 +10,7 @@ import 'update_infografis.dart';
 import 'update_publikasi.dart';
 import 'update_data.dart';
 import 'review_user.dart';
+import 'package:admin_lapissatu/atoms/widgets_data.dart';
 
 import 'atoms/notification_service.dart';
 
@@ -246,7 +247,7 @@ class DashboardAdmin extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: _SmallStatsCard(
+                      child: SmallStatsCard(
                         count: requestCount,
                         label: 'Layanan Masuk',
                         icon: Icons.inbox_outlined,
@@ -255,7 +256,7 @@ class DashboardAdmin extends StatelessWidget {
                     ),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: _SmallStatsCard(
+                      child: SmallStatsCard(
                         label: 'Layanan Terpopuler',
                         value: mostPopularService,
                         icon: Icons.star_border_outlined,
@@ -345,87 +346,18 @@ class DashboardAdmin extends StatelessWidget {
                     );
                   },
                 ),
-                _MenuButton(
-                  icon: Icons.explore_outlined,
-                  label: 'Explore Chart',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const TestChart(),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SmallStatsCard extends StatelessWidget {
-  final int? count;
-  final String label;
-  final String? value;
-  final IconData icon;
-  final Color color;
-
-  const _SmallStatsCard({
-    this.count,
-    required this.label,
-    this.value,
-    required this.icon,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12.0),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: .05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 32),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (count != null)
-                  Text(
-                    count.toString(),
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                if (value != null)
-                  Text(
-                    value ?? '',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                Text(
-                  label,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
+                // _MenuButton(
+                //   icon: Icons.explore_outlined,
+                //   label: 'Explore Chart',
+                //   onTap: () {
+                //     Navigator.push(
+                //       context,
+                //       MaterialPageRoute(
+                //         builder: (context) => const TestChart(),
+                //       ),
+                //     );
+                //   },
+                // ),
               ],
             ),
           ),

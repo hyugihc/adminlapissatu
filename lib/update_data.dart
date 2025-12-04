@@ -1,3 +1,4 @@
+import 'package:admin_lapissatu/atoms/func_utils.dart';
 import 'package:admin_lapissatu/atoms/widgets_data.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -15,6 +16,9 @@ class UpdateData extends StatefulWidget {
 
 class _UpdateDataState extends State<UpdateData> {
   List<Map<String, dynamic>> _dataList = [];
+  List<Map<String, dynamic>> _filteredList = [];
+
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -22,11 +26,18 @@ class _UpdateDataState extends State<UpdateData> {
     _loadData();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadData() async {
     final data = await _fetchData();
 
     setState(() {
       _dataList = data;
+      _filteredList = data;
     });
   }
 
@@ -50,6 +61,25 @@ class _UpdateDataState extends State<UpdateData> {
     return fetchedMap;
   }
 
+  void _runFilter(String enteredKeyword) {
+    List<Map<String, dynamic>> results = [];
+    if (enteredKeyword.isEmpty) {
+      results = _dataList;
+    } else {
+      results = _dataList
+          .where(
+            (item) => item['title']!.toLowerCase().contains(
+              enteredKeyword.toLowerCase(),
+            ),
+          )
+          .toList();
+    }
+
+    setState(() {
+      _filteredList = results;
+    });
+  }
+
   void _seeData({required Map<String, dynamic> initialData}) async {
     final isRefresh = await Navigator.push(
       context,
@@ -62,6 +92,8 @@ class _UpdateDataState extends State<UpdateData> {
       final freshData = await _fetchData();
       setState(() {
         _dataList = freshData;
+        _searchController.clear();
+        _filteredList = freshData;
       });
     }
   }
@@ -77,6 +109,7 @@ class _UpdateDataState extends State<UpdateData> {
       final newData = await _fetchData();
       setState(() {
         _dataList = newData;
+        _filteredList = newData;
       });
     }
   }
@@ -90,6 +123,7 @@ class _UpdateDataState extends State<UpdateData> {
       final newData = await _fetchData();
       setState(() {
         _dataList = newData;
+        _filteredList = newData;
       });
     }
   }
@@ -97,11 +131,9 @@ class _UpdateDataState extends State<UpdateData> {
   Future<void> showUnderDevelopmentDialog(BuildContext context) {
     return showDialog<void>(
       context: context,
-      // Pengguna harus menekan tombol untuk menutup dialog
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          // Menambahkan ikon untuk membuatnya lebih menarik secara visual
           icon: const Icon(Icons.construction_outlined, size: 48),
           title: const Text(
             'Segera Hadir!',
@@ -141,37 +173,120 @@ class _UpdateDataState extends State<UpdateData> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor:
+          Colors.grey[100], // Background agak abu seperti di gambar
       appBar: AppBar(title: const Text('Update Data Publik')),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16.0),
-        itemCount: _dataList.length,
-        itemBuilder: (context, index) {
-          final data = _dataList[index];
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12.0),
-            child: ListTile(
-              title: Text(data['title']!),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.blue),
-                    onPressed: () {
-                      // print(data);
-                      _seeData(initialData: data);
-                    },
-                    tooltip: 'Lihat',
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // === BAGIAN SEARCH BAR (UI Baru) ===
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Cari Data',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _searchController,
+                  onChanged: (value) => _runFilter(value),
+                  decoration: InputDecoration(
+                    hintText: 'Cari data tabel disini',
+                    hintStyle: TextStyle(color: Colors.grey[500]),
+                    prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12), // Rounded border
+                      borderSide: BorderSide.none, // Hilangkan garis border
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Colors.blue,
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          );
-        },
+          ),
+
+          // === LIST DATA ===
+          Expanded(
+            child: _filteredList.isNotEmpty
+                ? ListView.builder(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    itemCount: _filteredList.length,
+                    itemBuilder: (context, index) {
+                      final data = _filteredList[index]; // Gunakan filteredList
+                      return Card(
+                        elevation: 0, // Flat style agar mirip modern UI
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        color: Colors.white,
+                        margin: const EdgeInsets.only(bottom: 12.0),
+                        child: ListTile(
+                          title: Text(
+                            data['title']!,
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.edit,
+                                  color: Colors.blue,
+                                ),
+                                onPressed: () {
+                                  _seeData(initialData: data);
+                                },
+                                tooltip: 'Lihat / Edit',
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  )
+                : const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.search_off, size: 64, color: Colors.grey),
+                        SizedBox(height: 10),
+                        Text(
+                          'Data tidak ditemukan',
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+        ],
       ),
       floatingActionButton: PopupMenuButton<MenuOption>(
-        // Callback saat salah satu item menu dipilih
+        // ... (Kode FAB PopupMenuButton kamu yang lama tetap sama di sini) ...
         onSelected: (MenuOption item) {
-          // Logika untuk menangani pilihan
           switch (item) {
             case MenuOption.uploadExcel:
               _addExcelInput();
@@ -181,7 +296,6 @@ class _UpdateDataState extends State<UpdateData> {
               break;
           }
         },
-
         itemBuilder: (BuildContext context) => <PopupMenuEntry<MenuOption>>[
           const PopupMenuItem<MenuOption>(
             value: MenuOption.uploadExcel,
@@ -198,15 +312,13 @@ class _UpdateDataState extends State<UpdateData> {
             ),
           ),
         ],
-
-        // Bagian ini membuat PopupMenuButton terlihat seperti FAB
         tooltip: 'Tambah Data Baru',
         child: Container(
           width: 56.0,
           height: 56.0,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Theme.of(context).colorScheme.secondary, // Warna FAB
+            color: Theme.of(context).colorScheme.secondary,
             boxShadow: const [
               BoxShadow(
                 color: Colors.black26,
@@ -215,10 +327,7 @@ class _UpdateDataState extends State<UpdateData> {
               ),
             ],
           ),
-          child: const Icon(
-            Icons.add,
-            color: Colors.white, // Warna ikon
-          ),
+          child: const Icon(Icons.add, color: Colors.white),
         ),
       ),
     );
@@ -294,9 +403,9 @@ class _ShowData extends State<ShowData> {
   }
 
   Future<void> _deleteData() async {
+    LoadingHelper.showLoadingDialog(context);
     try {
       final snapshot = _cachedSnapshots!;
-
       final batch = FirebaseFirestore.instance.batch();
 
       for (var doc in snapshot.docs) {
@@ -320,9 +429,10 @@ class _ShowData extends State<ShowData> {
         );
       }
       await Future.delayed(const Duration(seconds: 2));
-      if (!mounted) return;
-
-      Navigator.pop(context, isChanged);
+      if (mounted) {
+        LoadingHelper.closeLoadingDialog(context);
+        Navigator.pop(context, isChanged);
+      }
     } catch (e) {
       print(e);
 
@@ -461,13 +571,12 @@ class _ShowData extends State<ShowData> {
                   },
                   Row(
                     children: [
-                      // Tombol Edit Data
                       Expanded(
                         child: ElevatedButton.icon(
                           icon: const Icon(Icons.edit),
                           label: const Text('Edit'),
-                          onPressed: () {
-                            Navigator.push(
+                          onPressed: () async {
+                            bool? isUpdated = await Navigator.push<bool?>(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => ManualInputPage(
@@ -484,6 +593,13 @@ class _ShowData extends State<ShowData> {
                                 ),
                               ),
                             );
+                            if (isUpdated != null && isUpdated == true) {
+                              setState(() {
+                                _kontakFuture = FirebaseFirestore.instance
+                                    .collection(linkData)
+                                    .get();
+                              });
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 12),

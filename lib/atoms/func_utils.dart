@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:admin_lapissatu/atoms/enum_var.dart' show SnackbarType;
+import 'package:admin_lapissatu/atoms/enum_var.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -34,6 +34,35 @@ int _compareDynamic(dynamic valA, dynamic valB) {
     }
   }
   return valA.toString().compareTo(valB.toString());
+}
+
+Map<String, List> findColumnFitName({required List<Map> columnMaster}) {
+  List<String> xLabel = [];
+  List<String> yCol = [];
+
+  for (var col in (columnMaster)) {
+    var tempvar = DataType.values[col.values.first as int];
+    if (col.keys.first == 'id_row') {
+      continue;
+    }
+    if ([
+      DataType.string,
+      DataType.year,
+      DataType.month,
+      DataType.date,
+      DataType.datetime,
+    ].contains(tempvar)) {
+      xLabel.add(col.keys.first);
+    } else if ([
+      DataType.integer,
+      DataType.float,
+      DataType.money,
+    ].contains(tempvar)) {
+      yCol.add(col.keys.first);
+    }
+  }
+  Map<String, List> xyLabel = {'xlabel': xLabel, 'ylabel': yCol};
+  return xyLabel;
 }
 
 void showErrorDialog({required BuildContext context, required String message}) {

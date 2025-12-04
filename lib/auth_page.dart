@@ -1,3 +1,4 @@
+import 'package:admin_lapissatu/atoms/func_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -29,30 +30,13 @@ class _LoginPageState extends State<LoginPage> {
         } else {
           message = 'Terjadi kesalahan: ${e.message}';
         }
-        _showErrorDialog(message);
+        if (mounted) {
+          showErrorDialog(context: context, message: message);
+        }
       } catch (e) {
         print('Terjadi error tak terduga: $e');
       }
     }
-  }
-
-  void _showErrorDialog(String message) {
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Error Login'),
-        content: Text(message),
-        actions: <Widget>[
-          TextButton(
-            child: const Text('Oke'),
-            onPressed: () {
-              Navigator.of(ctx).pop();
-            },
-          ),
-        ],
-      ),
-    );
   }
 
   @override

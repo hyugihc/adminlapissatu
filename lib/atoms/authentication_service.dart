@@ -15,7 +15,6 @@ class AuthWrapper extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        print(snapshot.data);
         if (snapshot.hasData) {
           NotificationService().initNotifications();
           return const HomePage();

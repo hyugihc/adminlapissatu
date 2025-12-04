@@ -93,6 +93,21 @@ class _ManualInputPageState extends State<ManualInputPage> {
     super.dispose();
   }
 
+  List<Map<String, dynamic>> renameColumn({
+    required String oldName,
+    required String newName,
+  }) {
+    List<Map<String, dynamic>> dataBaru = _rowData.map((item) {
+      final newMap = Map<String, dynamic>.from(item);
+      if (newMap.containsKey(oldName)) {
+        newMap[newName] = newMap[oldName];
+        newMap.remove(oldName);
+      }
+      return newMap;
+    }).toList();
+    return dataBaru;
+  }
+
   void _showAddColumnDialog({int? idx}) {
     final nameController = TextEditingController();
     DataType? selectedType;
@@ -193,9 +208,14 @@ class _ManualInputPageState extends State<ManualInputPage> {
                             col.value.name == nameController.text,
                       )) {
                     setState(() {
+                      String oldName = _columns[idx].name;
                       _columns[idx] = ColumnDefinition(
                         name: nameController.text,
                         type: selectedType!,
+                      );
+                      _rowData = renameColumn(
+                        oldName: oldName,
+                        newName: nameController.text,
                       );
                     });
                   }
@@ -803,39 +823,60 @@ class _ManualInputPageState extends State<ManualInputPage> {
     }
 
     if (!context.mounted) return;
-    _showLoadingDialog(context);
+    LoadingHelper.showLoadingDialog(context);
 
     try {
       if (isMetadataChanged) {
-        await FirebaseFirestore.instance
-            .collection('/data-umum/title/list_title')
-            .doc(existingTitleId)
-            .update({
-              'judul': _titleController.text,
-              'category': _atribut['category'],
-              'subcategory': _atribut['subcategory'],
-              'updated_at': FieldValue.serverTimestamp(),
-            });
-        // print('✅ Metadata updated');
-
-        // print('METADATA ORI : ${[_oriTitle, _oriCategory, _oriSubCategory]}');
-        // print(
-        //   'METADATA BARU : ${[_titleController.text, _atribut['category'], _atribut['subcategory']]}',
-        // );
+        if (_titleController.text.isNotEmpty &&
+            _atribut['category'] != null &&
+            _atribut['subcategory'] != null) {
+          await FirebaseFirestore.instance
+              .collection('/data-umum/title/list_title')
+              .doc(existingTitleId)
+              .update({
+                'judul': _titleController.text,
+                'category': _atribut['category'],
+                'subcategory': _atribut['subcategory'],
+                'updated_at': FieldValue.serverTimestamp(),
+              });
+          if (context.mounted) {
+            SnackbarHelper.show(
+              context,
+              message: 'Metadata Updated!',
+              type: SnackbarType.info,
+            );
+          }
+        }
+        if (context.mounted) {
+          SnackbarHelper.show(
+            context,
+            message: 'Something Wrong : Metadata Not Updated!',
+            type: SnackbarType.error,
+          );
+        }
       }
 
       if (isRowDataChanged) {
-        await updateDataBatch(existingLink, _rowData); // Fungsi batch lama Anda
-        // print('✅ Row Data updated (Full Batch)');
-      }
-      // C. Update Atribut Saja (Jika Row Data TETAP, tapi setting chart/atribut berubah)
-      else if (isAtributChanged) {
-        // Kita tidak perlu menghapus/tulis ulang ribuan data row. Cukup update 1 dokumen atribut.
+        await updateDataBatch(existingLink, _rowData);
+        if (context.mounted) {
+          SnackbarHelper.show(
+            context,
+            message: 'Data Updated!',
+            type: SnackbarType.info,
+          );
+        }
+      } else if (isAtributChanged) {
         await FirebaseFirestore.instance
             .collection(existingLink)
             .doc('atribut')
-            .set(_atribut); // Gunakan set atau update
-        // print('✅ Attribute updated only');
+            .set(_atribut);
+        if (context.mounted) {
+          SnackbarHelper.show(
+            context,
+            message: 'Data Atribute Updated!',
+            type: SnackbarType.info,
+          );
+        }
       }
 
       if (context.mounted) Navigator.of(context).pop();
@@ -853,12 +894,9 @@ class _ManualInputPageState extends State<ManualInputPage> {
       if (!context.mounted) return;
 
       Navigator.of(context).pop(true);
-
-      // ... Tampilkan Dialog Sukses & Navigasi (sama seperti kode sebelumnya) ...
     } catch (e) {
       print(e);
-      if (context.mounted) Navigator.of(context).pop(); // Tutup Loading
-      // ... Handle Error ...
+      if (context.mounted) Navigator.of(context).pop();
     }
   }
 
@@ -884,7 +922,7 @@ class _ManualInputPageState extends State<ManualInputPage> {
     }
 
     if (!context.mounted) return;
-    _showLoadingDialog(context);
+    LoadingHelper.showLoadingDialog(context);
 
     try {
       String idlink;
@@ -934,29 +972,6 @@ class _ManualInputPageState extends State<ManualInputPage> {
         message: 'Gagal Terkirim\nSilakan Coba Lagi',
       );
     }
-  }
-
-  void _showLoadingDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      // Mencegah dialog ditutup saat user mengetuk area di luar dialog
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return const Dialog(
-          child: Padding(
-            padding: EdgeInsets.all(20.0),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(width: 20),
-                Text("Menyimpan data..."),
-              ],
-            ),
-          ),
-        );
-      },
-    );
   }
 
   Future<bool?> _showExitConfirmationDialog(BuildContext context) {

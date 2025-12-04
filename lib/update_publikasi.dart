@@ -53,6 +53,12 @@ class _UpdatePublikasiState extends State<UpdatePublikasi> {
       }).toList();
       return publications;
     } catch (e) {
+      if (mounted) {
+        showErrorDialog(
+          context: context,
+          message: 'Terjadi Error saat memuat data',
+        );
+      }
       print(e);
       return [];
     }
@@ -82,7 +88,6 @@ class _UpdatePublikasiState extends State<UpdatePublikasi> {
       context,
       MaterialPageRoute(
         builder: (context) =>
-            // Scaffold(),
             EditPublikasiPage(initialData: publicationList[index]),
       ),
     );
@@ -140,19 +145,15 @@ class _UpdatePublikasiState extends State<UpdatePublikasi> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // Jika terjadi error
           if (snapshot.hasError) {
             return const Center(
               child: Text('Gagal memuat data. Silakan coba lagi.'),
             );
           }
 
-          // Jika tidak ada data
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(child: Text('Tidak ada publikasi tersedia.'));
           }
-
-          // Jika data berhasil dimuat, bangun MasonryGridView
           publicationList = snapshot.data!;
           return ListView.builder(
             padding: const EdgeInsets.all(16.0),
