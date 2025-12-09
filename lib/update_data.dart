@@ -349,13 +349,15 @@ class _ShowData extends State<ShowData> {
   bool isChanged = false;
   Map<String, dynamic> _atribute = {};
   List<Map<String, dynamic>> data = [];
-  late final int _subCatIdx;
-  late final int _catIdx;
+  late String _titleData;
+  late int _subCatIdx;
+  late int _catIdx;
 
   @override
   void initState() {
     super.initState();
     linkData = widget.initialData['link']!;
+    _titleData = widget.initialData['title']!;
     _subCatIdx = widget.initialData['subcategory']!;
     _catIdx = widget.initialData['category']!;
     _kontakFuture = FirebaseFirestore.instance.collection(linkData).get();
@@ -544,14 +546,13 @@ class _ShowData extends State<ShowData> {
                 children: [
                   const SizedBox(height: 16),
                   Text(
-                    widget.initialData['title']!,
+                    _titleData,
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // #########
                   if (_atribute.isEmpty || data.isEmpty)
                     const Center(
                       child: Card(
@@ -584,7 +585,7 @@ class _ShowData extends State<ShowData> {
                                     'id': widget.initialData['id'],
                                     'atribut': _atribute,
                                     'data': data,
-                                    'title': widget.initialData['title'],
+                                    'title': _titleData,
                                     'link': widget.initialData['link'],
                                     'category': _catIdx,
                                     'subcategory': _subCatIdx,
@@ -593,11 +594,23 @@ class _ShowData extends State<ShowData> {
                                 ),
                               ),
                             );
+                            print(isUpdated);
                             if (isUpdated != null && isUpdated == true) {
+                              data.clear();
                               setState(() {
+                                isChanged = true;
                                 _kontakFuture = FirebaseFirestore.instance
                                     .collection(linkData)
                                     .get();
+                                final dataMaster = FireBaseDB.loadDocument(
+                                  collectionPath: 'data-umum/title/list_title/',
+                                  docId: widget.initialData['id'],
+                                );
+                                dataMaster.then((value) {
+                                  _titleData = value['judul'];
+                                  _catIdx = value['category'];
+                                  _subCatIdx = value['subcategory'];
+                                });
                               });
                             }
                           },
