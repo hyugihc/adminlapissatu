@@ -209,7 +209,7 @@ class _AddEditStatsDialogState extends State<_AddEditStatsDialog> {
                 controller: _valueController,
                 decoration: const InputDecoration(
                   labelText: 'Nilai',
-                  hintText: 'Contoh: 3.28',
+                  hintText: 'Contoh: 41.6%',
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
