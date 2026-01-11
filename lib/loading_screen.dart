@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:admin_lapissatu/atoms/authentication_service.dart';
 import 'package:flutter/material.dart';
-// import 'home_page.dart';
 
 class LoadingScreen extends StatefulWidget {
   const LoadingScreen({super.key});

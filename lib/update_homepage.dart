@@ -145,9 +145,6 @@ class _AddEditStatsDialogState extends State<_AddEditStatsDialog> {
     _labelController = TextEditingController(text: data?['label'] ?? '');
 
     String initialValue = data?['value'] ?? '';
-    if (initialValue.endsWith('%')) {
-      initialValue = initialValue.substring(0, initialValue.length - 1);
-    }
     _valueController = TextEditingController(text: initialValue);
   }
 
@@ -157,9 +154,7 @@ class _AddEditStatsDialogState extends State<_AddEditStatsDialog> {
     setState(() => _isLoading = true);
 
     try {
-      double rawValue = double.parse(_valueController.text);
-
-      String formattedValue = '${rawValue.toStringAsFixed(2)}%';
+      String formattedValue = _valueController.text;
 
       final data = {'label': _labelController.text, 'value': formattedValue};
 
@@ -172,7 +167,7 @@ class _AddEditStatsDialogState extends State<_AddEditStatsDialog> {
         Navigator.of(context).pop();
       }
     } catch (e) {
-      print('Gagal menyimpan: $e');
+      // print('Gagal menyimpan: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -215,7 +210,6 @@ class _AddEditStatsDialogState extends State<_AddEditStatsDialog> {
                 decoration: const InputDecoration(
                   labelText: 'Nilai',
                   hintText: 'Contoh: 3.28',
-                  suffixText: '%',
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
@@ -223,9 +217,6 @@ class _AddEditStatsDialogState extends State<_AddEditStatsDialog> {
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Nilai tidak boleh kosong';
-                  }
-                  if (double.tryParse(value) == null) {
-                    return 'Masukkan angka yang valid (gunakan titik untuk desimal)';
                   }
                   return null;
                 },

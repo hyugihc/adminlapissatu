@@ -1,4 +1,3 @@
-// import 'package:excel/excel.dart';
 import 'package:admin_lapissatu/atoms/const_var.dart';
 import 'package:admin_lapissatu/atoms/func_utils.dart';
 import 'package:flutter/material.dart';
@@ -43,9 +42,7 @@ class _ManualInputPageState extends State<ManualInputPage> {
   late Map<String, DateTime?> _dateValues;
   final TextEditingController _titleController = TextEditingController();
   String? _kategoriData;
-  final List<String> _items = Category.values
-      .map((e) => e.name.toUpperCase())
-      .toList();
+  late final List<String> _items;
   bool editing = false;
   int? idxEdited;
 
@@ -56,7 +53,7 @@ class _ManualInputPageState extends State<ManualInputPage> {
   late final Map<Category, List<String>> _subCategoryOptions;
 
   late final List<Map<String, dynamic>>? _oriRowData;
-  late final Map<String, dynamic>? _oriAtribut;
+  Map<String, dynamic>? _oriAtribut;
   late final int? _oriCategory;
   late final int? _oriSubCategory;
   late final String? _oriTitle;
@@ -76,12 +73,13 @@ class _ManualInputPageState extends State<ManualInputPage> {
     _controllers = {};
     _dateValues = {};
     _subCategoryOptions = AppVar.subCategory;
+    _items = Category.values
+        .map((e) => _displayCategoryName(category: e))
+        .toList();
     if (widget.dataIn == null) {
       _loadDraft();
     } else {
       _loadDataIn();
-      print('IDMETA : $_metaId');
-      print('ORI ATRIBUT  $_oriAtribut');
     }
   }
 
@@ -248,7 +246,6 @@ class _ManualInputPageState extends State<ManualInputPage> {
       _atribut['column'] = null;
       for (var col in _columns) {
         if (col.name == 'id_row') {
-          print('id_row exist');
         } else if (col.type == DataType.string ||
             col.type == DataType.integer ||
             col.type == DataType.float ||
@@ -261,7 +258,7 @@ class _ManualInputPageState extends State<ManualInputPage> {
         var columnMap = _atribut['column'] as List<Map<String, dynamic>>? ?? [];
         columnMap.add({col.name: DataType.values.indexOf(col.type)});
         _atribut['column'] = columnMap;
-        print('kolom ${col.name} ditambahkan');
+        // print('kolom ${col.name} ditambahkan');
       }
       _currentStep = 2;
       editing = false;
@@ -302,9 +299,7 @@ class _ManualInputPageState extends State<ManualInputPage> {
         return TextFormField(
           controller: _controllers[column.name],
           decoration: InputDecoration(labelText: '${column.name} (desimal)'),
-          // 1. Ubah keyboardType agar mendukung input desimal
           keyboardType: TextInputType.numberWithOptions(decimal: true),
-          // 2. Ganti formatter untuk mengizinkan angka dan satu titik desimal
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'^\-?\d*\.?\d*')),
           ],
@@ -359,16 +354,12 @@ class _ManualInputPageState extends State<ManualInputPage> {
                     child: YearPicker(
                       firstDate: DateTime(2000),
                       lastDate: DateTime(2101),
-                      // initialDate: DateTime(initialYear),
-                      // selectedDate harus berupa DateTime, jadi kita buat dari initialYear
                       selectedDate: DateTime(initialYear),
                       onChanged: (DateTime dateTime) {
-                        // Update controller dengan tahun yang baru dipilih
                         setState(() {
                           _controllers[column.name]!.text = dateTime.year
                               .toString();
                         });
-                        // Tutup dialog setelah memilih
                         Navigator.pop(context);
                       },
                     ),
@@ -422,25 +413,20 @@ class _ManualInputPageState extends State<ManualInputPage> {
           subtitle: Text(
             _dateValues[column.name] == null
                 ? 'Pilih Tanggal & Waktu'
-                // Format untuk menampilkan tanggal dan waktu
                 : DateFormat(
                     'dd-MM-yyyy HH:mm',
                   ).format(_dateValues[column.name]!),
           ),
           trailing: const Icon(Icons.calendar_today),
           onTap: () async {
-            // 1. Tampilkan dialog untuk memilih tanggal
             final DateTime? pickedDate = await showDatePicker(
               context: context,
               initialDate: _dateValues[column.name] ?? DateTime.now(),
               firstDate: DateTime(2000),
               lastDate: DateTime(2101),
             );
-
-            // Jika pengguna batal memilih tanggal, hentikan proses
             if (pickedDate == null) return;
 
-            // Pastikan widget masih ada sebelum melanjutkan (praktik terbaik)
             if (!context.mounted) return;
 
             final TimeOfDay? pickedTime = await showTimePicker(
@@ -452,10 +438,8 @@ class _ManualInputPageState extends State<ManualInputPage> {
               ),
             );
 
-            // Jika pengguna batal memilih waktu, hentikan proses
             if (pickedTime == null) return;
 
-            // 3. Gabungkan tanggal dan waktu menjadi satu objek DateTime
             final DateTime finalDateTime = DateTime(
               pickedDate.year,
               pickedDate.month,
@@ -464,7 +448,6 @@ class _ManualInputPageState extends State<ManualInputPage> {
               pickedTime.minute,
             );
 
-            // 4. Update state dengan nilai yang baru
             setState(() {
               _dateValues[column.name] = finalDateTime;
             });
@@ -521,8 +504,8 @@ class _ManualInputPageState extends State<ManualInputPage> {
   }
 
   Future<void> _saveDraft() async {
-    print(_rowData);
-    print(_columns);
+    // print(_rowData);
+    // print(_columns);
     List<Map<String, dynamic>> encodableData = _rowData.map((row) {
       return row.map((key, value) {
         if (value is DateTime) {
@@ -541,25 +524,25 @@ class _ManualInputPageState extends State<ManualInputPage> {
     String jsonString = jsonEncode(encodableData);
     await prefs.setString(_draftKey, jsonString);
     await prefs.setString(_atributKey, atributString);
-    print('Draft saved: $jsonString');
+    // print('Draft saved: $jsonString');
   }
 
   Future<void> _deleteDraft() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_draftKey);
     await prefs.remove(_atributKey);
-    print('Draft deleted');
+    // print('Draft deleted');
   }
 
   Future<void> _loadDraft() async {
-    print('loading draft...');
+    // print('loading draft...');
     final prefs = await SharedPreferences.getInstance();
     String? jsonString = prefs.getString(_draftKey);
     String? atributString = prefs.getString(_atributKey);
-    print('Draft loaded: $jsonString');
+    // print('Draft loaded: $jsonString');
 
     if (atributString != null) {
-      print('Ada draft yang di Load!');
+      // print('Ada draft yang di Load!');
       Map<String, dynamic> decodedMap = jsonDecode(atributString);
       setState(() {
         _atribut = decodedMap;
@@ -578,7 +561,7 @@ class _ManualInputPageState extends State<ManualInputPage> {
           );
         }
       });
-      print(_atribut);
+      // print(_atribut);
     }
     if (jsonString != null) {
       List<dynamic> decodedList = jsonDecode(jsonString);
@@ -591,24 +574,17 @@ class _ManualInputPageState extends State<ManualInputPage> {
         DataType.datetime,
       };
 
-      // Loop setiap definisi kolom dari _atribut
       for (var col in _atribut['column']) {
-        // Ambil nama kolom dan tipe datanya
-        // Asumsi: key dari map 'col' adalah nama kolomnya
         final String columnName = col.keys.first;
         final DataType currentType = DataType.values[col.values.first];
 
-        // Cek apakah kolom ini adalah salah satu dari tipe tanggal
         if (dateTypes.contains(currentType)) {
-          // Loop setiap baris data untuk melakukan konversi
           for (var row in _rowData) {
             final dynamic rawValue = row[columnName];
             if (rawValue is String && rawValue.isNotEmpty) {
-              // Gunakan tryParse untuk keamanan, agar tidak error jika format salah
               final DateTime? parsedDate = DateTime.tryParse(rawValue);
 
               if (parsedDate != null) {
-                // Ganti nilai String di map dengan objek DateTime yang sudah jadi
                 row[columnName] = parsedDate;
               }
             }
@@ -616,9 +592,20 @@ class _ManualInputPageState extends State<ManualInputPage> {
         }
       }
     }
-    print('_rowData: $_rowData');
-    print('_atribut: $_atribut');
-    print('_columns: $_columns');
+    // print('_rowData: $_rowData');
+    // print('_atribut: $_atribut');
+    // print('_columns: $_columns');
+  }
+
+  String _displayCategoryName({required Category category}) {
+    switch (category) {
+      case Category.penduduk:
+        return 'Statistik Penduduk';
+      case Category.ekonomi:
+        return 'Statistik Ekonomi';
+      case Category.multidomain:
+        return 'Statistik Multi Domain';
+    }
   }
 
   void _loadDataIn() {
@@ -640,7 +627,7 @@ class _ManualInputPageState extends State<ManualInputPage> {
       _titleController.text = widget.dataIn!['title'];
       _oriTitle = _titleController.text;
       final Category tempCat = Category.values[widget.dataIn!['category']];
-      _kategoriData = tempCat.name.toUpperCase();
+      _kategoriData = _displayCategoryName(category: tempCat);
       _oriCategory = widget.dataIn!['category'];
       // print(tempCat);
       // print(widget.dataIn!['subcategory']);
@@ -657,14 +644,13 @@ class _ManualInputPageState extends State<ManualInputPage> {
   }
 
   Future<void> updateDataBatch(
-    String linkCollection, // Nama folder: "data_xxxx"
+    String linkCollection,
     List<Map<String, dynamic>> newDataList,
   ) async {
     final String link = linkCollection;
     final firestore = FirebaseFirestore.instance;
     final koleksiRef = firestore.collection(link);
 
-    // Mulai Batch
     WriteBatch batch = firestore.batch();
 
     try {
@@ -675,17 +661,17 @@ class _ManualInputPageState extends State<ManualInputPage> {
       }
 
       for (var dataMap in newDataList) {
-        DocumentReference newDocRef = koleksiRef.doc(); // Buat ID baru
+        DocumentReference newDocRef = koleksiRef.doc();
         batch.set(newDocRef, dataMap);
       }
 
       batch.set(koleksiRef.doc('atribut'), _atribut);
       await batch.commit();
 
-      print('✅ Selesai! Data berhasil diperbarui (Wipe & Replace).');
+      // print('✅ Selesai! Data berhasil diperbarui (Wipe & Replace).');
     } catch (e) {
-      print('❌ Terjadi error saat update batch: $e');
-      throw e; // Lempar error agar ditangkap oleh try-catch di _updateAndSave
+      // print('❌ Terjadi error saat update batch: $e');
+      rethrow;
     }
   }
 
@@ -705,11 +691,9 @@ class _ManualInputPageState extends State<ManualInputPage> {
       }
       batch.set(koleksiRef.doc('atribut'), _atribut);
       await batch.commit();
-
-      print('✅ Selesai! Semua data berhasil diunggah dengan batch.');
       return link;
     } catch (e) {
-      print('❌ Terjadi error saat mengunggah data dengan batch: $e');
+      // print('❌ Terjadi error saat mengunggah data dengan batch: $e');
       return null;
     }
   }
@@ -736,7 +720,6 @@ class _ManualInputPageState extends State<ManualInputPage> {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        // Otomatis tutup dialog setelah 2 detik
         Future.delayed(const Duration(seconds: 1), () {
           if (context.mounted) {
             if (Navigator.of(context).canPop()) {
@@ -794,9 +777,6 @@ class _ManualInputPageState extends State<ManualInputPage> {
       return;
     }
 
-    // if (!context.mounted) return;
-    // _showLoadingDialog(context);
-
     bool isMetadataChanged =
         _titleController.text != _oriTitle ||
         _atribut['category'] != _oriCategory ||
@@ -812,8 +792,8 @@ class _ManualInputPageState extends State<ManualInputPage> {
       _oriAtribut,
     );
 
-    print('NEW ATRIBUT : $_atribut');
-    print('ORI ATRIBUT  $_oriAtribut');
+    // print('NEW ATRIBUT : $_atribut');
+    // print('ORI ATRIBUT  $_oriAtribut');
 
     if (!isMetadataChanged && !isRowDataChanged && !isAtributChanged) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -895,7 +875,7 @@ class _ManualInputPageState extends State<ManualInputPage> {
 
       Navigator.of(context).pop(true);
     } catch (e) {
-      print(e);
+      // print(e);
       if (context.mounted) Navigator.of(context).pop();
     }
   }
@@ -935,7 +915,7 @@ class _ManualInputPageState extends State<ManualInputPage> {
             .limit(1)
             .get();
         idExists = docSnapshot.docs.isNotEmpty;
-        print('NEW ID Generated');
+        // print('NEW ID Generated');
       } while (idExists);
       final String link =
           await uploadDataBatch('data_$idlink', _rowData) as String;
@@ -961,7 +941,7 @@ class _ManualInputPageState extends State<ManualInputPage> {
 
       Navigator.of(context).pop(true);
     } catch (e) {
-      print(e);
+      // print(e);
       if (context.mounted) Navigator.of(context).pop();
 
       if (!context.mounted) return;
@@ -1026,7 +1006,6 @@ class _ManualInputPageState extends State<ManualInputPage> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      // 3. Logika saat user menekan tombol kembali bawaan HP
       onPopInvokedWithResult: (bool didPop, Object? result) {
         if (didPop) return;
         _handleExitAttempt();
@@ -1181,8 +1160,6 @@ class _ManualInputPageState extends State<ManualInputPage> {
           hint: const Text('Pilih Subkategori'),
           value: _subKategoriData,
           isExpanded: true,
-          // Tampilkan hint "Pilih Kategori Dulu" jika disabled
-          // Ini adalah trik UI yang bagus
           disabledHint: Text(
             _kategoriData == null
                 ? 'Pilih Kategori Data terlebih dahulu'
@@ -1196,11 +1173,10 @@ class _ManualInputPageState extends State<ManualInputPage> {
                   setState(() {
                     _subKategoriData = newValue;
                     if (newValue != null) {
-                      // Asumsi Anda ingin menyimpan indeksnya juga
                       _atribut['subcategory'] = _subItems.indexOf(newValue);
                     }
                   });
-                  print(_atribut);
+                  // print(_atribut);
                 },
 
           items: _subItems.map((String item) {
@@ -1215,11 +1191,9 @@ class _ManualInputPageState extends State<ManualInputPage> {
         const SizedBox(height: 8),
         _columns.isEmpty
             ? const Text('Belum ada kolom. Klik (+) untuk menambahkan.')
-            // Bungkus dengan SizedBox untuk memberikan frame dengan tinggi tetap
             : SizedBox(
                 height: 300,
                 child: ListView.builder(
-                  // Hapus shrinkWrap: true agar ListView bisa di-scroll
                   itemCount: _columns.first.name == 'id_row'
                       ? _columns.length - 1
                       : _columns.length,
@@ -1234,10 +1208,8 @@ class _ManualInputPageState extends State<ManualInputPage> {
                         title: Text(col.name),
                         subtitle: Text('Tipe: ${col.type.name}'),
                         trailing: Row(
-                          mainAxisSize: MainAxisSize
-                              .min, // Penting! Agar Row tidak makan tempat
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            // --- Tombol Edit ---
                             IconButton(
                               icon: const Icon(
                                 Icons.edit,
@@ -1247,7 +1219,6 @@ class _ManualInputPageState extends State<ManualInputPage> {
                                 _showAddColumnDialog(idx: idx);
                               },
                             ),
-                            // --- Tombol Hapus ---
                             IconButton(
                               icon: const Icon(Icons.delete, color: Colors.red),
                               onPressed: () {
@@ -1257,7 +1228,7 @@ class _ManualInputPageState extends State<ManualInputPage> {
                                   }
                                   _columns.removeAt(index);
                                 });
-                                print(_rowData);
+                                // print(_rowData);
                               },
                             ),
                           ],
@@ -1284,7 +1255,6 @@ class _ManualInputPageState extends State<ManualInputPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // --- HEADER JUDUL ---
         const Text(
           'Visualisasi Data',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -1312,7 +1282,6 @@ class _ManualInputPageState extends State<ManualInputPage> {
                   value: value,
                   child: Row(
                     children: [
-                      // Ikon dinamis sesuai teks
                       Icon(switch (value) {
                         'Bar Chart' => Icons.bar_chart_rounded,
                         'Line Chart' => Icons.show_chart_rounded,
@@ -1339,24 +1308,16 @@ class _ManualInputPageState extends State<ManualInputPage> {
         ),
 
         const SizedBox(height: 30),
-
-        // --- AREA PREVIEW CHART ---
         const Text(
           'Pratinjau Grafik:',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 10),
-
-        // Container untuk Chart
         switch (_selectedChartType) {
-          'Bar Chart' => DesignedBarChart(
-            data: _rowData,
-            atribute: _atribut, // Pastikan _atribut sudah terisi column
-          ),
+          'Bar Chart' => DesignedBarChart(data: _rowData, atribute: _atribut),
           'Line Chart' => DesignedLineChart(data: _rowData, atribute: _atribut),
           _ => const Center(child: Text("Chart Tidak Ditampilkan")),
         },
-
         const SizedBox(height: 30),
       ],
     );

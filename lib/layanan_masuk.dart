@@ -24,7 +24,6 @@ class _LayananPageState extends State<LayananPage> {
     _setupRequestsStream();
   }
 
-  /// Menyiapkan dan menggabungkan stream dari semua koleksi layanan
   void _setupRequestsStream() {
     final internStream = _firestore.collection('intern-req').snapshots();
     final consultStream = _firestore.collection('consult-req').snapshots();
@@ -69,7 +68,6 @@ class _LayananPageState extends State<LayananPage> {
     );
   }
 
-  /// Fungsi untuk mengubah status request menjadi 'selesai'
   Future<void> _completeRequest(Map<String, dynamic> requestData) async {
     String collectionName;
     final String title = requestData['title'] ?? '';
@@ -82,16 +80,15 @@ class _LayananPageState extends State<LayananPage> {
     } else if (title == 'Permintaan Data') {
       collectionName = 'data-req';
     } else {
-      print('Error: Tipe layanan tidak dikenal: "$title"');
+      // print('Error: Tipe layanan tidak dikenal: "$title"');
       return;
     }
     try {
       await _firestore.collection(collectionName).doc(requestData['id']).update(
         {'status': 'selesai'},
       );
-      // Tidak perlu setState karena StreamBuilder akan update otomatis
     } catch (e) {
-      print("Error updating data: $e");
+      // print("Error updating data: $e");
     }
   }
 
@@ -157,12 +154,7 @@ class _LayananPageState extends State<LayananPage> {
   }
 }
 
-//==================================================================
-// KELAS-KELAS UI (TAMPILAN)
-//==================================================================
-
 class PermintaanMasuk extends StatelessWidget {
-  // ... (Tidak ada perubahan di sini)
   final Function(Map<String, dynamic>) onShowDetail;
   final VoidCallback onBackPressed;
   final List<Map<String, dynamic>> pendingRequests;
@@ -271,7 +263,6 @@ class PermintaanMasuk extends StatelessWidget {
 }
 
 class LayananSelesaiPage extends StatelessWidget {
-  // ... (Tidak ada perubahan di sini)
   final List<Map<String, dynamic>> completedRequests;
   const LayananSelesaiPage({super.key, required this.completedRequests});
 
@@ -308,7 +299,6 @@ class LayananSelesaiPage extends StatelessWidget {
 }
 
 class _CardPermintaanLayanan extends StatelessWidget {
-  // ... (Tidak ada perubahan di sini)
   final Map<String, dynamic> item;
   final VoidCallback onDetailPressed;
   const _CardPermintaanLayanan({
@@ -368,7 +358,6 @@ class _CardPermintaanLayanan extends StatelessWidget {
 }
 
 class DetailPermintaanLayanan extends StatelessWidget {
-  // ... (Tidak ada perubahan di sini)
   final Map<String, dynamic> requestData;
   final VoidCallback onBackPressed;
   final VoidCallback? onCompleted;
@@ -388,13 +377,11 @@ class DetailPermintaanLayanan extends StatelessWidget {
     String? subject,
     String? body,
   }) async {
-    // Membuat map untuk query parameters
     final Map<String, String> queryParameters = {
       if (subject != null) 'subject': subject,
       if (body != null) 'body': body,
     };
 
-    // Membuat URI dengan skema mailto
     final Uri emailUri = Uri(
       scheme: 'mailto',
       path: toEmail,
@@ -672,7 +659,7 @@ class __BuildDetailFileRowState extends State<_BuildDetailFileRow> {
         _isLoading = false;
       });
     } catch (e) {
-      print("Gagal mendapatkan data file: $e");
+      // print("Gagal mendapatkan data file: $e");
       setState(() {
         _fileName = 'File tidak ditemukan';
         _isLoading = false;

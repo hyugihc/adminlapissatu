@@ -173,13 +173,11 @@ class _UpdateDataState extends State<UpdateData> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          Colors.grey[100], // Background agak abu seperti di gambar
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(title: const Text('Update Data Publik')),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // === BAGIAN SEARCH BAR (UI Baru) ===
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
             child: Column(
@@ -205,8 +203,8 @@ class _UpdateDataState extends State<UpdateData> {
                     fillColor: Colors.white,
                     contentPadding: const EdgeInsets.symmetric(vertical: 0),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12), // Rounded border
-                      borderSide: BorderSide.none, // Hilangkan garis border
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -225,7 +223,6 @@ class _UpdateDataState extends State<UpdateData> {
             ),
           ),
 
-          // === LIST DATA ===
           Expanded(
             child: _filteredList.isNotEmpty
                 ? ListView.builder(
@@ -235,9 +232,9 @@ class _UpdateDataState extends State<UpdateData> {
                     ),
                     itemCount: _filteredList.length,
                     itemBuilder: (context, index) {
-                      final data = _filteredList[index]; // Gunakan filteredList
+                      final data = _filteredList[index];
                       return Card(
-                        elevation: 0, // Flat style agar mirip modern UI
+                        elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                           side: BorderSide(color: Colors.grey.shade200),
@@ -285,7 +282,6 @@ class _UpdateDataState extends State<UpdateData> {
         ],
       ),
       floatingActionButton: PopupMenuButton<MenuOption>(
-        // ... (Kode FAB PopupMenuButton kamu yang lama tetap sama di sini) ...
         onSelected: (MenuOption item) {
           switch (item) {
             case MenuOption.uploadExcel:
@@ -436,7 +432,7 @@ class _ShowData extends State<ShowData> {
         Navigator.pop(context, isChanged);
       }
     } catch (e) {
-      print(e);
+      // print(e);
 
       if (!mounted) return;
       _showStatusDialog(
@@ -468,15 +464,15 @@ class _ShowData extends State<ShowData> {
             TextButton(
               child: const Text('Batal'),
               onPressed: () {
-                Navigator.of(context).pop(); // Tutup dialog
+                Navigator.of(context).pop();
               },
             ),
             TextButton(
               style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('YA, HAPUS'),
               onPressed: () {
-                Navigator.of(context).pop(); // Tutup dialog
-                _deleteData(); // Lanjutkan ke proses hapus
+                Navigator.of(context).pop();
+                _deleteData();
               },
             ),
           ],
@@ -594,7 +590,7 @@ class _ShowData extends State<ShowData> {
                                 ),
                               ),
                             );
-                            print(isUpdated);
+                            // print(isUpdated);
                             if (isUpdated != null && isUpdated == true) {
                               data.clear();
                               setState(() {

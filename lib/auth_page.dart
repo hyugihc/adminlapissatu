@@ -156,10 +156,7 @@ class _LoginPageState extends State<LoginPage> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            minimumSize: const Size(
-                              double.infinity,
-                              50,
-                            ), // Lebar penuh
+                            minimumSize: const Size(double.infinity, 50),
                           ),
                           child: const Text(
                             'MASUK',

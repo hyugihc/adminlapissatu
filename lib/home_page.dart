@@ -1,4 +1,3 @@
-// import 'package:admin_lapissatu/test_table.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:rxdart/rxdart.dart';
@@ -283,11 +282,6 @@ class DashboardAdmin extends StatelessWidget {
                   child: const Text('Lihat Semua Layanan'),
                 ),
                 const SizedBox(height: 20),
-                // _MenuButton(
-                //   icon: Icons.dashboard_outlined,
-                //   label: 'Dashboard Performance',
-                //   onTap: () {},
-                // ),
                 _MenuButton(
                   icon: Icons.update,
                   label: 'Update Data',
@@ -346,18 +340,6 @@ class DashboardAdmin extends StatelessWidget {
                     );
                   },
                 ),
-                // _MenuButton(
-                //   icon: Icons.explore_outlined,
-                //   label: 'Explore Chart',
-                //   onTap: () {
-                //     Navigator.push(
-                //       context,
-                //       MaterialPageRoute(
-                //         builder: (context) => const TestChart(),
-                //       ),
-                //     );
-                //   },
-                // ),
               ],
             ),
           ),

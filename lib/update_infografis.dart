@@ -2,15 +2,9 @@ import 'package:admin_lapissatu/atoms/enum_var.dart';
 import 'package:admin_lapissatu/atoms/func_utils.dart';
 import 'package:admin_lapissatu/atoms/widgets_data.dart';
 import 'package:flutter/material.dart';
-// import 'package:file_picker/file_picker.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-// import 'package:http/http.dart' as http;
-// import 'package:path_provider/path_provider.dart';
-
-// import 'dart:convert';
 import 'dart:io';
 
 class UpdateInfografis extends StatefulWidget {
@@ -47,7 +41,7 @@ class _UpdateInfografisState extends State<UpdateInfografis> {
       }).toList();
       return infografisList;
     } catch (e) {
-      print("Error saat mengambil data infografis: $e");
+      // print("Error saat mengambil data infografis: $e");
       return [];
     }
   }
@@ -59,7 +53,7 @@ class _UpdateInfografisState extends State<UpdateInfografis> {
           .doc(infografisList[index]['id']);
       await documentReference.delete();
     } catch (e) {
-      print("Error saat menghapus dokumen: $e");
+      // print("Error saat menghapus dokumen: $e");
       rethrow;
     }
     setState(() {
@@ -129,7 +123,6 @@ class _UpdateInfografisState extends State<UpdateInfografis> {
             vertical: 24,
           ),
           content: SizedBox(
-            // height: MediaQuery.of(context).size.height * 0.7,
             width: MediaQuery.of(context).size.width,
             child: Column(
               children: [
@@ -213,19 +206,16 @@ class _UpdateInfografisState extends State<UpdateInfografis> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // Jika terjadi error
           if (snapshot.hasError) {
             return const Center(
               child: Text('Gagal memuat data. Silakan coba lagi.'),
             );
           }
 
-          // Jika tidak ada data
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(child: Text('Tidak ada infografis tersedia.'));
           }
 
-          // Jika data berhasil dimuat, bangun MasonryGridView
           infografisList = snapshot.data!;
 
           return MasonryGridView.count(
@@ -367,7 +357,7 @@ class _AddInfografisPageState extends State<AddInfografisPage> {
           Navigator.pop(context, docRef.id);
         }
       } catch (e) {
-        print("Error memperbarui data: $e");
+        // print("Error memperbarui data: $e");
         rethrow;
       }
     } else {

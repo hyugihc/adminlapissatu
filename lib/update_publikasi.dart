@@ -3,7 +3,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-
 import 'dart:io';
 
 class UpdatePublikasi extends StatefulWidget {
@@ -31,7 +30,6 @@ class _UpdatePublikasiState extends State<UpdatePublikasi> {
       final List<Map<String, String>> publications = snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
 
-        // 2. Ambil dan format timestamp
         String formattedDate = 'Tanggal tidak tersedia';
         if (data['release_time'] != null && data['release_time'] is Timestamp) {
           DateTime date = (data['release_time'] as Timestamp).toDate();
@@ -59,7 +57,7 @@ class _UpdatePublikasiState extends State<UpdatePublikasi> {
           message: 'Terjadi Error saat memuat data',
         );
       }
-      print(e);
+      // print(e);
       return [];
     }
   }
